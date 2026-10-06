@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Multilog | Validador de Queries</title>
+  <meta name="description" content="Ferramenta interna para comparar CSVs de queries antigas e otimizadas.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2311294B'/%3E%3Cpath d='M17 17h30v6H17zm0 11h30v6H17zm0 11h20v6H17z' fill='%2300FFFF'/%3E%3Cpath d='M43 40l4 4 8-10' fill='none' stroke='%23FFFFFF' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="loginView" class="login-view">
+    <div class="login-shell">
+      <div class="login-copy">
+        <img src="assets/multilog-logo.png" alt="Multilog">
+        <h1>Comparação de resultados</h1>
+        <p>Faça login para acessar o sistema</p>
+      </div>
+
+      <form id="loginForm" class="login-card">
+        <label>
+          E-mail
+          <span class="field">
+            <span aria-hidden="true">✉</span>
+            <input type="email" placeholder="seu.email@multilog.com.br" autocomplete="email">
+          </span>
+        </label>
+
+        <label>
+          Senha
+          <span class="field">
+            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+            <input id="password" type="password" placeholder="Sua senha" autocomplete="current-password">
+            <button id="passwordToggle" class="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button>
+          </span>
+        </label>
+
+        <p class="hint">Acesse com seu e-mail e a senha cadastrada.</p>
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
+
+    <footer>© 2026 Multilog S.A.</footer>
+  </section>
+
+  <main id="appView" class="app-view hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <img src="assets/multilog-logo.png" alt="Multilog" class="logo">
+        <nav class="page-nav" aria-label="Principal">
+          <a href="#comparacao" data-page="comparacao" class="active">Comparação de resultados</a>
+          <a href="#ajuda" data-page="ajuda">Ajuda</a>
+          <a href="#configuracoes" data-page="configuracoes">Configurações</a>
+        </nav>
+        <div class="user-control">
+          <button id="userButton" class="user-button" type="button" aria-label="Abrir menu do usuário" aria-expanded="false" aria-controls="userMenu">
+            <span id="userInitial" class="user-avatar">U</span>
+            <span id="userName" class="user-name">Usuário</span>
+            <span class="user-chevron" aria-hidden="true"></span>
+          </button>
+          <div id="userMenu" class="user-menu hidden">
+            <div class="user-details">
+              <span id="menuInitial" class="user-avatar">U</span>
+              <div><span id="menuName">Usuário</span><small id="menuEmail"></small></div>
+            </div>
+            <button id="logoutButton" class="logout-button" type="button">Sair</button>
+          </div>
+        </div>
+      </div>
+
+    </header>
+
+    <section id="comparacaoPage" class="workspace app-page">
+      <div class="page-head">
+        <div>
+          <h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6m-12 7 3 3 5-6"/></svg>Validação de CSVs</h2>
+        </div>
+        <div class="head-actions">
+          <button id="exportBtn" class="ghost" type="button">Exportar resumo</button>
+          <button id="clearBtn" class="ghost" type="button">Resetar</button>
+        </div>
+      </div>
+
+      <section class="filter-panel">
+        <label>
+          Arquivo antigo
+          <span class="file-field">
+            <input id="oldCsv" type="file" accept=".csv,text/csv">
+            <strong id="oldName">Selecionar CSV</strong>
+          </span>
+        </label>
+
+        <label>
+          Arquivo otimizado
+          <span class="file-field">
+            <input id="newCsv" type="file" accept=".csv,text/csv">
+            <strong id="newName">Selecionar CSV</strong>
+          </span>
+        </label>
+
+        <fieldset class="row-options">
+          <legend>Linhas analisadas</legend>
+          <div class="row-segments">
+            <label><input type="radio" name="rowLimit" value="1000" checked><span>1.000</span></label>
+            <label><input type="radio" name="rowLimit" value="5000"><span>5.000</span></label>
+            <label><input type="radio" name="rowLimit" value="0"><span>Todas</span></label>
+          </div>
+        </fieldset>
+
+        <button id="compareBtn" type="button">Comparar CSVs</button>
+      </section>
+
+      <p id="status" class="status" role="status">Envie os dois CSVs para iniciar a validação.</p>
+
+      <section id="results" class="results hidden">
+        <div class="score" id="scoreCard"></div>
+        <div class="comparison-summary" id="summaryCards"></div>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h3>Resumo por coluna</h3>
+            <p>Nulos, distintos e somas numéricas comparadas entre as duas queries.</p>
+          </div>
+          <div class="table-wrap">
+            <table id="columnsTable"></table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h3>Registros que tinham na antiga e não têm na nova</h3>
+            <p id="removedCount"></p>
+          </div>
+          <div class="table-wrap">
+            <table id="diffTable"></table>
+          </div>
+        </article>
+        <article class="panel">
+          <div class="panel-head">
+            <h3>Registros que não tinham na antiga e têm na nova</h3>
+            <p id="addedCount"></p>
+          </div>
+          <div class="table-wrap"><table id="addedTable"></table></div>
+        </article>
+      </section>
+    </section>
+    <section id="ajudaPage" class="workspace app-page hidden">
+      <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
+      <p class="help-intro">Consulte os indicadores para entender o resultado da comparação.</p>
+      <dl class="help-list">
+        <dt>Arquivo antigo e arquivo otimizado</dt><dd>São os CSVs exportados pela query original e pela nova versão. Use os mesmos filtros e o mesmo período nos dois.</dd>
+        <dt>Linhas analisadas</dt><dd>Escolhe as primeiras 1.000 ou 5.000 linhas, ou todas as linhas. Uma amostra igual não garante que os arquivos completos sejam iguais. Para comparar amostras, exporte as queries com a mesma ordenação.</dd>
+        <dt>Resultado da validação</dt><dd>Informa se a estrutura e os registros analisados coincidem. A ordem das linhas não precisa ser igual, mas a quantidade de vezes que cada registro aparece precisa coincidir.</dd>
+        <dt>Quantidade de linhas</dt><dd>Total de registros efetivamente analisados em cada arquivo, sem o cabeçalho.</dd>
+        <dt>Quantidade de colunas</dt><dd>Quantidade de campos identificados em cada arquivo. Os nomes são comparados sem diferenciar maiúsculas de minúsculas e sem espaços nas extremidades.</dd>
+        <dt>Linhas duplicadas</dt><dd>Ocorrências repetidas além da primeira, considerando os valores das colunas comuns. Um registro que aparece três vezes conta como duas duplicatas.</dd>
+        <dt>Colunas exclusivas</dt><dd>Campos que existem apenas em um dos arquivos. Quantidades iguais não significam que os nomes desses campos sejam iguais.</dd>
+        <dt>Registros exclusivos</dt><dd>Ocorrências encontradas apenas em um arquivo, considerando as colunas comuns. Se uma linha aparece duas vezes na antiga e uma na nova, há uma ocorrência exclusiva na antiga.</dd>
+        <dt>Comparação: OK ou Difere</dt><dd>Compara o valor do indicador nas duas versões. OK significa que esses números coincidem; consulte também o resultado geral e os registros diferentes.</dd>
+        <dt>Resumo por coluna: Nulos</dt><dd>Conta os valores vazios de cada coluna. Um espaço em branco ou o texto “NULL” não é necessariamente um valor vazio no CSV.</dd>
+        <dt>Resumo por coluna: Distintos</dt><dd>Conta quantos valores diferentes aparecem na coluna, incluindo o valor vazio.</dd>
+        <dt>Resumo por coluna: Soma</dt><dd>Soma os valores interpretados como números; o traço indica ausência de números. O leitor atual considera vírgula como separador decimal e ponto como separador de milhar. Confira esse formato na exportação.</dd>
+        <dt>Registros que tinham na antiga e não têm na nova</dt><dd>Mostra os registros ou ocorrências que deixaram de aparecer na versão otimizada.</dd>
+        <dt>Registros que não tinham na antiga e têm na nova</dt><dd>Mostra os registros ou ocorrências adicionados pela versão otimizada. Cada lista exibe até 100 ocorrências; a contagem indica o total encontrado.</dd>
+        <dt>Como ler um registro</dt><dd>Cada trecho “coluna:valor” mostra um campo. O separador “||” divide os campos do registro.</dd>
+        <dt>Exportar resumo</dt><dd>Baixa um CSV com os principais indicadores da comparação. As listas completas de registros diferentes não fazem parte desse resumo.</dd>
+        <dt>Resetar</dt><dd>Remove os arquivos selecionados e o resultado atual para começar outra comparação.</dd>
+      </dl>
+    </section>
+    <section id="configuracoesPage" class="workspace app-page hidden">
+      <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2" fill="var(--bg)"/><circle cx="15" cy="12" r="2" fill="var(--bg)"/><circle cx="9" cy="19" r="2" fill="var(--bg)"/></svg>Configurações</h2></div>
+      <div class="settings-section">
+        <h3>Alterar senha</h3>
+        <p class="settings-note">A nova senha será salva para os próximos acessos a este sistema. Não altera sua senha corporativa.</p>
+        <form id="changePasswordForm" class="password-form">
+          <label>Senha atual<input id="currentPassword" type="password" autocomplete="current-password" required></label>
+          <label>Nova senha<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label>Confirmar nova senha<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+          <p class="settings-note">Use pelo menos 8 caracteres.</p>
+          <p id="passwordStatus" role="status"></p>
+          <button type="submit" class="settings-save">Alterar senha</button>
+        </form>
+      </div>
+      <div class="settings-section"><h3>Conta</h3><button id="settingsLogout" type="button" class="settings-logout">Desconectar da conta</button></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden">Login realizado com sucesso!</div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0/dist/umd/supabase.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
