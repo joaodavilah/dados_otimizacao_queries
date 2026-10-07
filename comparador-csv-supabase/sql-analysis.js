@@ -142,7 +142,14 @@
   let generation = 0;
   const aiResults = document.getElementById('sqlAiResults');
   const model = document.getElementById('sqlModel');
-  form.addEventListener('reset', () => { generation++; latest = null; aiResults.innerHTML = ''; aiResults.classList.add('hidden'); });
+  form.addEventListener('reset', () => {
+    const selectedModel = model.value;
+    generation++; latest = null;
+    aiResults.innerHTML = ''; aiResults.classList.add('hidden');
+    results.innerHTML = ''; results.classList.add('hidden'); status.textContent = '';
+    form.querySelector('button[type="submit"]').disabled = false;
+    queueMicrotask(() => { model.value = selectedModel; input.focus(); });
+  });
   const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const renderSuggestion = suggestion => suggestion ? `<div class="sql-suggestion"><h4>Dica de melhoria</h4><p>${escape(suggestion.tip)}</p><div class="sql-examples"><div><span>Antes · exemplo</span><pre>${escape(suggestion.before)}</pre></div><div><span>Alternativa · exemplo</span><pre>${escape(suggestion.after)}</pre></div></div><small>Nomes ilustrativos. Adapte ao seu banco, às tabelas e à regra de negócio; valide os resultados antes de substituir.</small></div>` : '';
   form.addEventListener('submit', async event => {
@@ -182,13 +189,13 @@
       p.textContent = error.name === 'TimeoutError' ? 'A análise demorou além do limite. A tentativa pode contar na cota.' : error.message;
       aiResults.appendChild(p);
       status.textContent = 'A análise por regras continua disponível.';
-    } finally { button.disabled = false; }
+    } finally { if (generation === requestGeneration) button.disabled = false; }
   });
   input.addEventListener('input', () => {
     generation++;
     aiResults.classList.add('hidden');
     latest = null; results.classList.add('hidden');
-    status.textContent = input.value ? 'Consulta alterada. Clique em Analisar para atualizar o resultado.' : '';
+    status.textContent = input.value ? 'Consulta alterada. Clique em Enviar para atualizar o resultado.' : '';
   });
   model.addEventListener('change', () => { generation++; aiResults.classList.add('hidden'); status.textContent = 'Modelo alterado. Envie a consulta para analisar com a opção selecionada.'; });
   results.addEventListener('click', event => {

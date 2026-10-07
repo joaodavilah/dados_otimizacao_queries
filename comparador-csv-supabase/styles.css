@@ -724,7 +724,10 @@ body, body * { font-weight: 400 !important; }
 .sql-editor textarea { min-height: 250px; border: 0; background: transparent; padding: 12px 0; }
 .sql-actions { border-top: 1px solid var(--line); padding-top: 16px; }
 .sql-model-label { display: flex; align-items: center; gap: 12px; }
-.sql-model-label select { width: auto; margin: 0; min-height: 42px; }
+.sql-model-label select { width: auto; max-width: 100%; margin: 0; min-height: 44px; padding: 10px 36px 10px 14px; border: 1px solid #718396; border-radius: 10px; background-color: #18232e; color: #ffffff; color-scheme: dark; cursor: pointer; }
+.sql-model-label select option { background-color: #18232e; color: #ffffff; }
+.sql-model-label select:hover { border-color: var(--cyan); }
+.sql-model-label select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .sql-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 24px; }
 .sql-actions button svg { width: 18px; height: 18px; }
 .sql-actions button:disabled { opacity: .5; cursor: wait; }
@@ -842,3 +845,8 @@ body .nav-title { font-weight: 600 !important; color: white; display: flex; just
   .head-actions { width: 100%; flex-wrap: wrap; }
   .head-actions button { flex: 1; }
 }
+
+.sql-action-buttons { display: flex; align-items: center; gap: 10px; }
+.sql-actions .sql-reset { background: transparent; color: #ffffff; border: 1px solid #718396; }
+.sql-actions .sql-reset:hover { border-color: var(--cyan); }
+@media (max-width: 600px) { .sql-action-buttons button { flex: 1; } }

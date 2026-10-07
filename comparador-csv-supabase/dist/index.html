@@ -150,7 +150,7 @@
       <form id="sqlForm" class="sql-editor panel">
         <label for="sqlInput">Consulta SQL</label>
         <textarea id="sqlInput" spellcheck="false" placeholder="Cole sua consulta SQL aqui..." required maxlength="200000" aria-describedby="sqlHint"></textarea>
-        <div class="sql-actions"><label class="sql-model-label" for="sqlModel">Modelo<select id="sqlModel"><option value="off">Off · somente regras</option><option value="groq">Groq · GPT-OSS 120B</option><option value="gemini">Gemini · Flash Lite</option></select></label><button type="submit" aria-label="Enviar SQL para análise">Enviar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div>
+        <div class="sql-actions"><label class="sql-model-label" for="sqlModel">Modelo<select id="sqlModel"><option value="off">Off · somente regras</option><option value="groq">Groq · GPT-OSS 120B</option><option value="gemini">Gemini · Flash Lite</option></select></label><div class="sql-action-buttons"><button type="reset" class="sql-reset">Resetar</button><button type="submit" aria-label="Enviar SQL para análise">Enviar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></div>
         <p id="sqlHint" class="sql-disclosure">Off usa regras locais. Com IA, a query é enviada ao fornecedor escolhido após a verificação automática. Basta colar o SQL; as instruções de análise já estão prontas. <a href="#ajuda">Ver critérios</a>.</p>
       </form>
       <p id="sqlStatus" class="status" role="status" aria-live="polite"></p>
