@@ -150,10 +150,12 @@
       <form id="sqlForm" class="sql-editor panel">
         <label for="sqlInput">Consulta SQL</label>
         <textarea id="sqlInput" spellcheck="false" placeholder="Cole sua consulta SQL aqui..." required maxlength="200000" aria-describedby="sqlHint"></textarea>
-        <div class="sql-actions"><p id="sqlHint">Análise local por regras. Consulte os critérios em <a href="#ajuda">Ajuda</a>.</p><button type="submit">Analisar</button></div>
+        <div class="sql-actions"><label class="sql-model-label" for="sqlModel">Modelo<select id="sqlModel"><option value="off">Off · somente regras</option><option value="groq">Groq · GPT-OSS 120B</option><option value="gemini">Gemini · Flash Lite</option></select></label><button type="submit" aria-label="Enviar SQL para análise">Enviar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div>
+        <p id="sqlHint" class="sql-disclosure">Off usa regras locais. Com IA, a query é enviada ao fornecedor escolhido após a verificação automática. Basta colar o SQL; as instruções de análise já estão prontas. <a href="#ajuda">Ver critérios</a>.</p>
       </form>
       <p id="sqlStatus" class="status" role="status" aria-live="polite"></p>
       <section id="sqlResults" class="hidden" aria-label="Resultado da análise SQL"></section>
+      <section id="sqlAiResults" class="hidden panel sql-issue" aria-label="Análise complementar da IA"></section>
     </section>
     <section id="ajudaPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
@@ -162,7 +164,9 @@
       <section id="helpSql" class="help-topic">
       <div class="help-topic-heading"><span>ANÁLISE DE CÓDIGO</span><h3>Análise SQL: critérios da nota</h3><p>Regras aplicadas à consulta e pontos descontados da avaliação.</p></div>
       <dl class="help-list">
-        <dt>Como funciona</dt><dd>O código é analisado no seu navegador, sem IA e sem executar a consulta. Comentários e textos entre aspas são ignorados nas verificações. A análise usa padrões gerais de SQL; não valida toda a sintaxe de um banco nem conhece suas tabelas.</dd>
+        <dt>Como funciona</dt><dd>Off aplica as regras no navegador. Groq e Gemini aplicam as mesmas regras primeiro e, sem bloqueios de estrutura ou escopo, enviam o SQL ao fornecedor escolhido para uma análise complementar. Avisos de pontuação não bloqueiam a IA. Nenhuma opção executa a consulta. As regras usam padrões gerais e não validam toda a sintaxe de um banco nem conhecem suas tabelas.</dd>
+        <dt>Modelos e instruções prontas</dt><dd>Você envia apenas o SQL. O servidor já fornece as instruções para revisar riscos de resultado, joins, nulos, filtros e manutenção. Groq usa GPT-OSS 120B e Gemini usa 3.1 Flash Lite. A resposta da IA não altera a nota automática e pode conter erros.</dd>
+        <dt>Cotas de IA</dt><dd>Até 30 tentativas por usuário e fornecedor em uma janela móvel de 24 horas. Há também limites compartilhados por minuto, por 24 horas e por orçamento de tokens. Cada chamada reserva texto de entrada e saída com margem conservadora; falhas podem contar. Queries maiores podem exigir Gemini ou Off. Os limites se liberam conforme tentativas antigas saem da janela; não há renovação fixa à meia-noite. Outros usos da mesma conta podem consumir a cota do fornecedor.</dd>
         <dt>Nota de 0 a 100</dt><dd>Começa em 100. Cada regra desconta pontos uma única vez, mesmo quando aparece em várias linhas. A nota mínima é zero. Ela mede aderência às regras abaixo, não garante correção ou desempenho. Problemas estruturais impedem a emissão da nota até a correção.</dd>
         <dt>Estrutura básica — corrigir antes de avaliar</dt><dd>Detecta aspas, comentários de bloco e parênteses não fechados ou parênteses sobrando. Avalia apenas uma consulta SELECT, que pode começar com WITH. Outras instruções ou múltiplas consultas ficam fora do escopo. Isso não substitui a validação de sintaxe do banco.</dd>
         <dt>SELECT * — menos 15 pontos</dt><dd>Selecionar todos os campos, inclusive com alias.*, pode trazer dados desnecessários e tornar o resultado dependente da estrutura da tabela. Liste as colunas usadas. COUNT(*) não recebe esse alerta.</dd>

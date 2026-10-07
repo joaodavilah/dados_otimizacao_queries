@@ -139,22 +139,58 @@
     document.querySelectorAll('[data-help]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
   }));
   let latest = null;
+  let generation = 0;
+  const aiResults = document.getElementById('sqlAiResults');
+  const model = document.getElementById('sqlModel');
+  form.addEventListener('reset', () => { generation++; latest = null; aiResults.innerHTML = ''; aiResults.classList.add('hidden'); });
   const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const renderSuggestion = suggestion => suggestion ? `<div class="sql-suggestion"><h4>Dica de melhoria</h4><p>${escape(suggestion.tip)}</p><div class="sql-examples"><div><span>Antes · exemplo</span><pre>${escape(suggestion.before)}</pre></div><div><span>Alternativa · exemplo</span><pre>${escape(suggestion.after)}</pre></div></div><small>Nomes ilustrativos. Adapte ao seu banco, às tabelas e à regra de negócio; valide os resultados antes de substituir.</small></div>` : '';
-  form.addEventListener('submit', event => {
+  form.addEventListener('submit', async event => {
     event.preventDefault();
     if (!input.value.trim()) { status.textContent = 'Cole uma consulta para analisar.'; return; }
     if (input.value.length > 200000) { status.textContent = 'Use até 200.000 caracteres por análise.'; return; }
     latest = analyzeSql(input.value);
+    const requestGeneration = ++generation;
+    const query = input.value;
+    const provider = model.value;
+    aiResults.classList.add('hidden'); aiResults.innerHTML = '';
     const label = latest.blocked ? 'Revise a estrutura da consulta' : latest.issues.length ? 'Consulta com pontos para revisão' : 'Nenhum alerta pelas regras atuais';
     results.innerHTML = `<div class="score ${latest.blocked ? 'bad' : latest.issues.length ? '' : 'ok'}"><div class="sql-score-number">${latest.blocked ? 'Sem nota' : latest.score + '<span>/100</span>'}</div><strong>${label}</strong><p>${latest.issues.length} ocorrência(s). A nota mede as regras em Ajuda; não garante correção ou desempenho.</p></div>` + latest.issues.map((issue, n) => `<article class="panel sql-issue"><div class="sql-issue-head"><span class="tag ${issue.blocking ? 'bad' : ''}">${issue.blocking ? 'Estrutura / escopo' : 'Revisar · −' + issue.penalty + ' pontos por regra'}</span><button type="button" class="ghost" data-issue="${n}">Ver no código · linha ${issue.line}</button></div><h3>${escape(issue.title)}</h3><pre>${escape(issue.snippet)}</pre><p>${escape(issue.message)}</p>${renderSuggestion(issue.suggestion)}</article>`).join('');
     results.classList.remove('hidden');
     status.textContent = 'Análise concluída. O SQL não foi executado nem enviado a um serviço de IA.';
+    if (provider === 'off') return;
+    if (latest.blocked) { status.textContent = 'Corrija a estrutura ou o escopo para continuar com IA. Nenhuma chamada foi feita.'; return; }
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    status.textContent = 'Regras concluídas. Analisando com ' + (provider === 'groq' ? 'Groq' : 'Gemini') + '...';
+    aiResults.classList.remove('hidden');
+    aiResults.innerHTML = '<div class="sql-thinking"><span></span><span></span><span></span></div><p>Avaliando sua consulta...</p>';
+    try {
+      const { data, error } = await authClient.auth.getSession();
+      if (error || !data.session?.access_token) throw new Error('Entre novamente para usar a IA.');
+      const response = await fetch('/api/analyze-sql', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token }, body: JSON.stringify({ sql: query, provider }), signal: AbortSignal.timeout(65000) });
+      let payload; try { payload = await response.json(); } catch { throw new Error('Backend indisponível. Confira o deploy da pasta api na Vercel.'); }
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível analisar com IA.');
+      if (generation !== requestGeneration || !activeEmail) return;
+      const analysis = payload.analysis;
+      aiResults.innerHTML = `<span class="tag">${provider === 'groq' ? 'Groq · GPT-OSS 120B' : 'Gemini · Flash Lite'}</span><h3 class="sql-ai-title">Análise complementar</h3><p>${escape(analysis.summary)}</p>` + analysis.findings.map(f => `<div class="sql-ai-finding"><span>${escape(f.severity)} · ${f.line ? 'Linha ' + f.line : 'Linha não confirmada'}</span><h4>${escape(f.title)}</h4><pre>${escape(f.snippet)}</pre><p>${escape(f.explanation)}</p><h4>Dica de melhoria</h4><pre>${escape(f.suggestion)}</pre></div>`).join('') + `<p class="sql-disclosure">${escape(analysis.limitations || 'Valide as sugestões e compare os resultados antes de substituir a consulta.')}</p><p class="sql-disclosure">Você ainda tem ${Number(payload.userRemaining)} análises neste fornecedor na janela de 24 horas. A cota compartilhada pode terminar antes. A IA pode errar; sua resposta não altera a nota automática.</p>`;
+      status.textContent = 'Análise automática e complementar concluídas.';
+    } catch (error) {
+      if (generation !== requestGeneration || !activeEmail) return;
+      aiResults.innerHTML = '';
+      const p = document.createElement('p');
+      p.textContent = error.name === 'TimeoutError' ? 'A análise demorou além do limite. A tentativa pode contar na cota.' : error.message;
+      aiResults.appendChild(p);
+      status.textContent = 'A análise por regras continua disponível.';
+    } finally { button.disabled = false; }
   });
   input.addEventListener('input', () => {
+    generation++;
+    aiResults.classList.add('hidden');
     latest = null; results.classList.add('hidden');
     status.textContent = input.value ? 'Consulta alterada. Clique em Analisar para atualizar o resultado.' : '';
   });
+  model.addEventListener('change', () => { generation++; aiResults.classList.add('hidden'); status.textContent = 'Modelo alterado. Envie a consulta para analisar com a opção selecionada.'; });
   results.addEventListener('click', event => {
     const button = event.target.closest('[data-issue]');
     if (!button || !latest) return;

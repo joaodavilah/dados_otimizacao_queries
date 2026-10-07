@@ -95,6 +95,8 @@ function resetSignedOutView() {
   document.getElementById("sqlResults").innerHTML = "";
   document.getElementById("sqlResults").classList.add("hidden");
   document.getElementById("sqlStatus").textContent = "";
+  document.getElementById("sqlAiResults").innerHTML = "";
+  document.getElementById("sqlAiResults").classList.add("hidden");
   activeEmail = "";
   document.getElementById("changePasswordForm").reset();
   document.getElementById("passwordStatus").textContent = "";

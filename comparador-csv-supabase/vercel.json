@@ -1,0 +1,4 @@
+{
+  "outputDirectory": "dist",
+  "functions": { "api/analyze-sql.js": { "maxDuration": 60 } }
+}

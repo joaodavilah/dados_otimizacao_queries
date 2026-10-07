@@ -720,6 +720,26 @@ body, body * { font-weight: 400 !important; }
 .sql-actions p { line-height: 1.5; }
 .sql-actions a { color: var(--cyan); }
 .sql-actions button { background: var(--cyan); color: var(--navy); padding: 12px 30px; }
+.sql-editor { max-width: 1050px; margin: 0 auto 24px; border-radius: 20px; background: #29323b; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.sql-editor textarea { min-height: 250px; border: 0; background: transparent; padding: 12px 0; }
+.sql-actions { border-top: 1px solid var(--line); padding-top: 16px; }
+.sql-model-label { display: flex; align-items: center; gap: 12px; }
+.sql-model-label select { width: auto; margin: 0; min-height: 42px; }
+.sql-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 24px; }
+.sql-actions button svg { width: 18px; height: 18px; }
+.sql-actions button:disabled { opacity: .5; cursor: wait; }
+.sql-disclosure { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 16px !important; }
+.sql-disclosure a { color: var(--cyan); }
+.sql-ai-title { margin-top: 16px !important; }
+.sql-ai-finding { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 20px; }
+.sql-ai-finding > span { font-size: 13px; color: var(--cyan); }
+.sql-ai-finding h4 { margin: 12px 0; font-size: 17px; }
+.sql-thinking { display: flex; gap: 6px; margin-bottom: 14px; }
+.sql-thinking span { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); animation: sql-pulse 1s infinite alternate; }
+.sql-thinking span:nth-child(2) { animation-delay: .2s; }
+.sql-thinking span:nth-child(3) { animation-delay: .4s; }
+@keyframes sql-pulse { to { opacity: .2; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .sql-thinking span { animation: none; } }
 .sql-score-number { color: var(--cyan); font-size: 36px; margin-bottom: 10px; }
 .sql-score-number span { color: var(--muted); font-size: 18px; }
 .help-switch { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
