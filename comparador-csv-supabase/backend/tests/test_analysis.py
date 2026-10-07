@@ -17,7 +17,22 @@ class AnalysisTests(unittest.TestCase):
     def test_dependencies_and_unused_measure(self):
         items, _, _ = classify(MEASURES,COLUMNS,[('Total','[Base]'),('Base','SUM(Vendas[Valor])')],[],LAYOUT,True,[])
         result = {i['name']:i['status'] for i in items}
-        self.assertEqual(result, {'Total':'used','Base':'used','Sem uso':'candidate','Valor':'used','Id':'review'})
+        self.assertEqual(result, {'Total':'used','Base':'used','Sem uso':'unused','Valor':'used','Id':'review'})
+    def test_unused_chain(self):
+        measures = [{'TableName':'T','Name':n} for n in ['A','B','C']]
+        items,_,_ = classify(measures,[],[('A','[B]',('T','A','Medida')),('B','[C]',('T','B','Medida'))],[],{'sections':[]},True,[])
+        self.assertEqual({i['name']:i['status'] for i in items}, {'A':'unused','B':'unused_dependency','C':'unused_dependency'})
+    def test_used_chain(self):
+        measures = [{'TableName':'T','Name':n} for n in ['A','B','C']]
+        items,_,_ = classify(measures,[],[('A','[B]',('T','A','Medida')),('B','[C]',('T','B','Medida'))],[],{'sections':[{'Measure':{'Property':'A'}}]},True,[])
+        self.assertTrue(all(i['status']=='used' for i in items))
+    def test_unreachable_cycle(self):
+        measures = [{'TableName':'T','Name':n} for n in ['A','B']]
+        items,_,_ = classify(measures,[],[('A','[B]',('T','A','Medida')),('B','[A]',('T','B','Medida'))],[],{'sections':[]},True,[])
+        self.assertTrue(all(i['status']=='unused_dependency' for i in items))
+    def test_partial_chain_needs_review(self):
+        items,_,_ = classify(MEASURES,[],[('Total','[Base]')],[],None,False,[])
+        self.assertTrue(all(i['status']=='review' for i in items))
     def test_incomplete_never_candidate(self):
         items,_,_ = classify(MEASURES,COLUMNS,[],[],None,False,['layout ausente'])
         self.assertTrue(all(i['status']=='review' for i in items))

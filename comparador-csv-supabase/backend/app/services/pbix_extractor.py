@@ -74,6 +74,9 @@ def classify(measures, columns, expressions, relationships, layout, complete, wa
     for item in items:
         by_name[item['name'].casefold()].append(item)
 
+    roots = set()
+    edges = defaultdict(set)
+    incoming = defaultdict(set)
     def mark(name, reason, table=None, kind=None):
         found = False
         for item in by_name.get(str(name).casefold(), []):
@@ -83,13 +86,35 @@ def classify(measures, columns, expressions, relationships, layout, complete, wa
                 continue
             if reason not in item['evidence']:
                 item['evidence'].append(reason)
+            roots.add(items.index(item))
             found = True
         return found
 
-    for label, expression in expressions:
+    for entry in expressions:
+        label, expression = entry[:2]
+        owner = entry[2] if len(entry) > 2 else None
+        sources = [i for i, item in enumerate(items) if owner and
+                   item['table'] == owner[0] and item['name'] == owner[1] and item['type'] == owner[2]]
+        # Compatibility for fixtures/legacy callers using a measure name as label.
+        if len(entry) == 2:
+            sources = [items.index(item) for item in by_name.get(label.casefold(), []) if item['type'] == 'Medida']
         for name in dax_refs(expression):
-            # Unqualified or ambiguous names protect every matching item.
-            mark(name, 'Dependência em ' + label)
+            targets = by_name.get(name.casefold(), [])
+            if not targets:
+                complete = False
+                warnings.append('Uma expressão contém referências não resolvidas; itens sem uso precisam de análise.')
+            for target in targets:
+                target_id = items.index(target)
+                reason = 'Dependência em ' + label
+                if reason not in target['evidence']:
+                    target['evidence'].append(reason)
+                if sources:
+                    for source in sources:
+                        edges[source].add(target_id)
+                        incoming[target_id].add(source)
+                else:
+                    # Security / table expressions without an inventory owner are roots.
+                    roots.add(target_id)
     for relation in relationships:
         for side in ('From', 'To'):
             mark(relation.get(side + 'ColumnName', ''), 'Participa de relacionamento', relation.get(side + 'TableName'), 'Coluna')
@@ -121,17 +146,29 @@ def classify(measures, columns, expressions, relationships, layout, complete, wa
                     if (item['table'] + '.' + item['name']).casefold() in node.casefold():
                         mark(item['name'], 'Referência textual no relatório: ' + path, item['table'], item['type'])
 
-    for item in items:
-        if item['evidence']:
+    reachable = set(roots)
+    pending = list(roots)
+    while pending:
+        source = pending.pop()
+        for target in edges[source]:
+            if target not in reachable:
+                reachable.add(target)
+                pending.append(target)
+    for index, item in enumerate(items):
+        if index in reachable:
             item['status'] = 'used'
-            item['reason'] = item['evidence'][0]
+            item['reason'] = ('Uso encontrado no relatório ou em uma dependência estrutural.' if index in roots else
+                              'Necessário para um item com uso encontrado, através da cadeia de dependências.')
         elif not complete or item['type'] == 'Coluna':
             item['status'] = 'review'
-            item['reason'] = ('Sem referência encontrada, mas a leitura tem limitações.' if not complete else
-                              'Sem referência explícita encontrada. Uso de tabela inteira, ordenação, hierarquias e propriedades estruturais exigem revisão.')
+            item['reason'] = ('Analisar: não foi possível confirmar o uso devido às limitações da leitura.' if not complete else
+                              'Analisar: usos estruturais e cálculos sobre a tabela inteira exigem revisão.')
+        elif incoming[index]:
+            item['status'] = 'unused_dependency'
+            item['reason'] = 'Referenciado apenas por cálculos que não chegam a um uso encontrado no relatório analisado.'
         else:
-            item['status'] = 'candidate'
-            item['reason'] = 'Sem referência encontrada no layout clássico ou nas expressões lidas. Candidata à revisão para remoção; não é garantia de ausência de uso.'
+            item['status'] = 'unused'
+            item['reason'] = 'Nenhum uso ou referência de outro cálculo encontrado no escopo analisado. Valide usos externos antes de remover.'
         item['evidence'] = item['evidence'][:10]
     return items, complete, list(dict.fromkeys(warnings))
 
@@ -167,7 +204,8 @@ def extract_pbix(path, filename):
                 for row in rows:
                     for key, value in row.items():
                         if isinstance(value, str) and ('expression' in key.casefold() or key.casefold() in ('filter', 'kpi', 'definition')):
-                            expressions.append((f"{attr}: {row.get('TableName', '')} {row.get('Name', '')}", value))
+                            owner = (row.get('TableName'), row.get('Name') or row.get('ColumnName'), 'Medida' if attr == 'dax_measures' else 'Coluna') if attr in ('dax_measures', 'dax_columns') else None
+                            expressions.append((f"{attr}: {row.get('TableName', '')} {row.get('Name', '')}", value, owner))
                 if attr in ('tmschema_calculation_items', 'tmschema_calculation_expressions', 'tmschema_functions', 'tmschema_kpis') and rows:
                     complete = False
                     warnings.append('Grupos de cálculo, KPIs ou funções DAX exigem revisão adicional nesta versão.')
@@ -190,7 +228,8 @@ def extract_pbix(path, filename):
     summary = {'tables': len(tables), 'measures': sum(i['type'] == 'Medida' for i in items),
                'columns': sum(i['type'] == 'Coluna' for i in items), 'pages': len(layout['sections']) if layout else None,
                'used': sum(i['status'] == 'used' for i in items),
-               'candidates': sum(i['status'] == 'candidate' for i in items),
+               'unused': sum(i['status'] == 'unused' for i in items),
+               'unused_dependency': sum(i['status'] == 'unused_dependency' for i in items),
                'review': sum(i['status'] == 'review' for i in items)}
     return {'filename': filename, 'summary': summary, 'items': items, 'warnings': warnings,
             'coverage': 'limited' if not complete else 'classic',
