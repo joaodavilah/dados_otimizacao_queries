@@ -157,23 +157,35 @@
     </section>
     <section id="ajudaPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
-      <p class="help-intro">Consulte os indicadores para entender o resultado da comparação.</p>
-      <h3>Análise de SQL: regras e nota</h3>
+      <p class="help-intro">Escolha o assunto para consultar os critérios e entender seu resultado.</p>
+      <div class="help-switch" role="group" aria-label="Assunto da ajuda"><button type="button" data-help="sql" aria-pressed="true">Análise SQL · critérios da nota</button><button type="button" data-help="csv" aria-pressed="false">Comparação CSV · indicadores</button></div>
+      <section id="helpSql" class="help-topic">
+      <div class="help-topic-heading"><span>ANÁLISE DE CÓDIGO</span><h3>Análise SQL: critérios da nota</h3><p>Regras aplicadas à consulta e pontos descontados da avaliação.</p></div>
       <dl class="help-list">
         <dt>Como funciona</dt><dd>O código é analisado no seu navegador, sem IA e sem executar a consulta. Comentários e textos entre aspas são ignorados nas verificações. A análise usa padrões gerais de SQL; não valida toda a sintaxe de um banco nem conhece suas tabelas.</dd>
         <dt>Nota de 0 a 100</dt><dd>Começa em 100. Cada regra desconta pontos uma única vez, mesmo quando aparece em várias linhas. A nota mínima é zero. Ela mede aderência às regras abaixo, não garante correção ou desempenho. Problemas estruturais impedem a emissão da nota até a correção.</dd>
         <dt>Estrutura básica — corrigir antes de avaliar</dt><dd>Detecta aspas, comentários de bloco e parênteses não fechados ou parênteses sobrando. Avalia apenas uma consulta SELECT, que pode começar com WITH. Outras instruções ou múltiplas consultas ficam fora do escopo. Isso não substitui a validação de sintaxe do banco.</dd>
-        <dt>SELECT * — menos 10 pontos</dt><dd>Selecionar todos os campos, inclusive com alias.*, pode trazer dados desnecessários e tornar o resultado dependente da estrutura da tabela. Liste as colunas usadas. COUNT(*) não recebe esse alerta.</dd>
+        <dt>SELECT * — menos 15 pontos</dt><dd>Selecionar todos os campos, inclusive com alias.*, pode trazer dados desnecessários e tornar o resultado dependente da estrutura da tabela. Liste as colunas usadas. COUNT(*) não recebe esse alerta.</dd>
         <dt>Comparação com NULL — menos 25 pontos</dt><dd>Expressões como campo = NULL ou campo &lt;&gt; NULL não verificam valores nulos corretamente. Use IS NULL ou IS NOT NULL.</dd>
-        <dt>CROSS JOIN — menos 15 pontos</dt><dd>Combina cada registro de uma tabela com todos os registros da outra. Confirme se essa multiplicação é intencional.</dd>
-        <dt>Função em coluna de filtro — menos 10 pontos</dt><dd>Procura funções comuns, como YEAR, DATE, CAST, LOWER e TRIM, aplicadas diretamente a uma coluna após WHERE. Podem dificultar otimizações, dependendo do banco. Uma função pode ser necessária; o alerta exige revisão.</dd>
-        <dt>LIKE com curinga inicial — menos 10 pontos</dt><dd>Padrões como LIKE '%texto' ou ILIKE '%texto%' podem exigir busca mais ampla. Confira se a busca por trecho é necessária.</dd>
-        <dt>SELECT DISTINCT — menos 5 pontos</dt><dd>Remover duplicados pode acrescentar trabalho e esconder multiplicações provocadas por joins. Pode ser legítimo; confira a origem das duplicatas.</dd>
-        <dt>UNION sem ALL — menos 5 pontos</dt><dd>UNION remove duplicados entre resultados. Use UNION ALL somente quando preservar repetições estiver de acordo com a regra de negócio.</dd>
+        <dt>CROSS JOIN — menos 20 pontos</dt><dd>Combina cada registro de uma tabela com todos os registros da outra. Confirme se essa multiplicação é intencional.</dd>
+        <dt>Função em coluna de filtro — menos 12 pontos</dt><dd>Procura funções comuns, como YEAR, DATE, CAST, LOWER e TRIM, aplicadas diretamente a uma coluna após WHERE. Podem dificultar otimizações, dependendo do banco. Uma função pode ser necessária; o alerta exige revisão.</dd>
+        <dt>LIKE com curinga inicial — menos 12 pontos</dt><dd>Padrões como LIKE '%texto' ou ILIKE '%texto%' podem exigir busca mais ampla. Confira se a busca por trecho é necessária.</dd>
+        <dt>SELECT DISTINCT — menos 8 pontos</dt><dd>Remover duplicados pode acrescentar trabalho e esconder multiplicações provocadas por joins. Pode ser legítimo; confira a origem das duplicatas.</dd>
+        <dt>UNION sem ALL — menos 8 pontos</dt><dd>UNION remove duplicados entre resultados. Use UNION ALL somente quando preservar repetições estiver de acordo com a regra de negócio.</dd>
         <dt>ORDER BY — menos 5 pontos</dt><dd>Ordenação pode aumentar o trabalho. Mantenha quando a ordem for necessária, especialmente em consultas com limites de linhas.</dd>
+        <dt>Condição 1 = 1 — menos 8 pontos</dt><dd>Condição sempre verdadeira após WHERE, AND, OR ou ON. Revise especialmente ON e OR; em SQL dinâmico pode ser intencional.</dd>
+        <dt>NOT IN com subconsulta — menos 15 pontos</dt><dd>Nulos na subconsulta podem causar um resultado inesperado. Confira os valores e a possibilidade de NOT EXISTS equivalente.</dd>
+        <dt>NULL em lista IN — menos 20 pontos</dt><dd>NULL na lista não verifica campos nulos. Revise a condição e use IS NULL quando necessário.</dd>
+        <dt>Ordenação aleatória — menos 10 pontos</dt><dd>ORDER BY RAND(), RANDOM() ou NEWID() exige revisão. Soma-se ao desconto geral de ORDER BY.</dd>
+        <dt>COUNT DISTINCT — menos 5 pontos</dt><dd>Contagem distinta exata pode exigir trabalho adicional. Uma alternativa aproximada só serve se a regra de negócio permitir.</dd>
+        <dt>Janela global ordenada — menos 8 pontos</dt><dd>OVER (ORDER BY ...) sem PARTITION BY calcula sobre toda a entrada. Confirme se o cálculo deveria ser por grupo. Também pode receber o alerta de ORDER BY.</dd>
+        <dt>Ordenação ou agrupamento por posição — menos 5 pontos</dt><dd>ORDER BY 1 ou GROUP BY 1 depende da ordem dos campos no SELECT. Prefira nomes ou expressões para facilitar manutenção.</dd>
+        <dt>Limite sem ORDER BY — menos 10 pontos</dt><dd>LIMIT, TOP ou FETCH com quantidade fixa, sem ORDER BY na consulta, pode selecionar amostras diferentes. A regra é geral e não valida a ordenação de cada subconsulta.</dd>
         <dt>Linhas, alertas e limites</dt><dd>Cada ocorrência mostra sua linha, trecho e orientação. Clique em “Ver no código” para selecionar o trecho no editor. Alertas são pontos para revisão, não erros confirmados de desempenho. Tabelas inexistentes, tipos, joins incorretos e regras de negócio exigem contexto e não são validados aqui. Limite de 200.000 caracteres por análise.</dd>
       </dl>
-      <h3>Comparação de CSVs</h3>
+      </section>
+      <section id="helpCsv" class="help-topic hidden">
+      <div class="help-topic-heading"><span>VALIDAÇÃO DE RESULTADOS</span><h3>Comparação de CSVs: indicadores</h3><p>Contagens, diferenças e informações dos arquivos antigo e otimizado. Estes indicadores não fazem parte da nota SQL.</p></div>
       <dl class="help-list">
         <dt>Arquivo antigo e arquivo otimizado</dt><dd>São os CSVs exportados pela query original e pela nova versão. Use os mesmos filtros e o mesmo período nos dois.</dd>
         <dt>Linhas analisadas</dt><dd>Escolhe as primeiras 1.000 ou 5.000 linhas, ou todas as linhas. Uma amostra igual não garante que os arquivos completos sejam iguais. Para comparar amostras, exporte as queries com a mesma ordenação.</dd>
@@ -194,6 +206,7 @@
         <dt>Resetar</dt><dd>Remove os arquivos selecionados e o resultado atual para começar outra comparação.</dd>
       </dl>
     </section>
+      </section>
     <section id="configuracoesPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2" fill="var(--bg)"/><circle cx="15" cy="12" r="2" fill="var(--bg)"/><circle cx="9" cy="19" r="2" fill="var(--bg)"/></svg>Configurações</h2></div>
       <div class="settings-section">

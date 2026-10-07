@@ -722,10 +722,27 @@ body, body * { font-weight: 400 !important; }
 .sql-actions button { background: var(--cyan); color: var(--navy); padding: 12px 30px; }
 .sql-score-number { color: var(--cyan); font-size: 36px; margin-bottom: 10px; }
 .sql-score-number span { color: var(--muted); font-size: 18px; }
+.help-switch { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.help-switch button { padding: 14px 20px; background: var(--navy); color: white; border: 1px solid var(--line); }
+.help-switch button[aria-pressed="true"] { background: var(--cyan); color: var(--navy); border-color: var(--cyan); }
+.help-topic { max-width: 1100px; border: 1px solid var(--line); border-radius: 8px; background: #29323b; padding: 24px; }
+.help-topic-heading { padding-bottom: 20px; border-bottom: 2px solid var(--cyan); }
+.help-topic-heading span { color: var(--cyan); font-size: 12px; letter-spacing: .08em; }
+.help-topic-heading h3 { font-size: 24px; margin: 10px 0; font-weight: 600 !important; }
+.help-topic-heading p { color: var(--muted); margin: 0; line-height: 1.6; }
+@media (max-width: 600px) { .help-switch button { width: 100%; } .help-topic { padding: 16px; } }
 .sql-issue { padding: 20px; }
 .sql-issue-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .sql-issue pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #18232e; padding: 12px; border-radius: 6px; color: #dbe5ef; }
 .sql-issue p { line-height: 1.6; }
+.sql-suggestion { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.sql-suggestion h4 { color: var(--cyan); margin: 0 0 10px; font-size: 16px; }
+.sql-examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.sql-examples > div { min-width: 0; }
+.sql-examples span { font-size: 13px; color: var(--muted); }
+.sql-examples > div:last-child pre { border-left: 3px solid var(--cyan); }
+.sql-suggestion small { display: block; color: var(--muted); line-height: 1.6; }
+@media (max-width: 720px) { .sql-examples { grid-template-columns: 1fr; } }
 @media (min-width: 901px) and (max-width: 1250px) { .topbar-left { grid-template-columns: auto 1fr auto; gap: 12px; } .topbar .logo { width: 130px; } .page-nav a { font-size: 14px; padding: 10px; } }
 @media (max-width: 600px) { .sql-editor { padding: 16px; } .sql-actions { align-items: stretch; flex-direction: column; gap: 12px; } .sql-actions button { width: 100%; } }
 #columnsTable thead th { text-transform: none; font-size: 14px; letter-spacing: 0; }
