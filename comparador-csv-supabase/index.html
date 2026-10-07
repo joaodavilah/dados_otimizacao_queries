@@ -49,6 +49,7 @@
         <img src="assets/multilog-logo.png" alt="Multilog" class="logo">
         <nav class="page-nav" aria-label="Principal">
           <a href="#comparacao" data-page="comparacao" class="active">Comparação de resultados</a>
+          <a href="#sql" data-page="sql">Análise de SQL</a>
           <a href="#ajuda" data-page="ajuda">Ajuda</a>
           <a href="#configuracoes" data-page="configuracoes">Configurações</a>
         </nav>
@@ -144,9 +145,35 @@
         </article>
       </section>
     </section>
+    <section id="sqlPage" class="workspace app-page hidden">
+      <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-14-2 16"/></svg>Análise de SQL</h2></div>
+      <form id="sqlForm" class="sql-editor panel">
+        <label for="sqlInput">Consulta SQL</label>
+        <textarea id="sqlInput" spellcheck="false" placeholder="Cole sua consulta SQL aqui..." required maxlength="200000" aria-describedby="sqlHint"></textarea>
+        <div class="sql-actions"><p id="sqlHint">Análise local por regras. Consulte os critérios em <a href="#ajuda">Ajuda</a>.</p><button type="submit">Analisar</button></div>
+      </form>
+      <p id="sqlStatus" class="status" role="status" aria-live="polite"></p>
+      <section id="sqlResults" class="hidden" aria-label="Resultado da análise SQL"></section>
+    </section>
     <section id="ajudaPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
       <p class="help-intro">Consulte os indicadores para entender o resultado da comparação.</p>
+      <h3>Análise de SQL: regras e nota</h3>
+      <dl class="help-list">
+        <dt>Como funciona</dt><dd>O código é analisado no seu navegador, sem IA e sem executar a consulta. Comentários e textos entre aspas são ignorados nas verificações. A análise usa padrões gerais de SQL; não valida toda a sintaxe de um banco nem conhece suas tabelas.</dd>
+        <dt>Nota de 0 a 100</dt><dd>Começa em 100. Cada regra desconta pontos uma única vez, mesmo quando aparece em várias linhas. A nota mínima é zero. Ela mede aderência às regras abaixo, não garante correção ou desempenho. Problemas estruturais impedem a emissão da nota até a correção.</dd>
+        <dt>Estrutura básica — corrigir antes de avaliar</dt><dd>Detecta aspas, comentários de bloco e parênteses não fechados ou parênteses sobrando. Avalia apenas uma consulta SELECT, que pode começar com WITH. Outras instruções ou múltiplas consultas ficam fora do escopo. Isso não substitui a validação de sintaxe do banco.</dd>
+        <dt>SELECT * — menos 10 pontos</dt><dd>Selecionar todos os campos, inclusive com alias.*, pode trazer dados desnecessários e tornar o resultado dependente da estrutura da tabela. Liste as colunas usadas. COUNT(*) não recebe esse alerta.</dd>
+        <dt>Comparação com NULL — menos 25 pontos</dt><dd>Expressões como campo = NULL ou campo &lt;&gt; NULL não verificam valores nulos corretamente. Use IS NULL ou IS NOT NULL.</dd>
+        <dt>CROSS JOIN — menos 15 pontos</dt><dd>Combina cada registro de uma tabela com todos os registros da outra. Confirme se essa multiplicação é intencional.</dd>
+        <dt>Função em coluna de filtro — menos 10 pontos</dt><dd>Procura funções comuns, como YEAR, DATE, CAST, LOWER e TRIM, aplicadas diretamente a uma coluna após WHERE. Podem dificultar otimizações, dependendo do banco. Uma função pode ser necessária; o alerta exige revisão.</dd>
+        <dt>LIKE com curinga inicial — menos 10 pontos</dt><dd>Padrões como LIKE '%texto' ou ILIKE '%texto%' podem exigir busca mais ampla. Confira se a busca por trecho é necessária.</dd>
+        <dt>SELECT DISTINCT — menos 5 pontos</dt><dd>Remover duplicados pode acrescentar trabalho e esconder multiplicações provocadas por joins. Pode ser legítimo; confira a origem das duplicatas.</dd>
+        <dt>UNION sem ALL — menos 5 pontos</dt><dd>UNION remove duplicados entre resultados. Use UNION ALL somente quando preservar repetições estiver de acordo com a regra de negócio.</dd>
+        <dt>ORDER BY — menos 5 pontos</dt><dd>Ordenação pode aumentar o trabalho. Mantenha quando a ordem for necessária, especialmente em consultas com limites de linhas.</dd>
+        <dt>Linhas, alertas e limites</dt><dd>Cada ocorrência mostra sua linha, trecho e orientação. Clique em “Ver no código” para selecionar o trecho no editor. Alertas são pontos para revisão, não erros confirmados de desempenho. Tabelas inexistentes, tipos, joins incorretos e regras de negócio exigem contexto e não são validados aqui. Limite de 200.000 caracteres por análise.</dd>
+      </dl>
+      <h3>Comparação de CSVs</h3>
       <dl class="help-list">
         <dt>Arquivo antigo e arquivo otimizado</dt><dd>São os CSVs exportados pela query original e pela nova versão. Use os mesmos filtros e o mesmo período nos dois.</dd>
         <dt>Linhas analisadas</dt><dd>Escolhe as primeiras 1.000 ou 5.000 linhas, ou todas as linhas. Uma amostra igual não garante que os arquivos completos sejam iguais. Para comparar amostras, exporte as queries com a mesma ordenação.</dd>
@@ -188,5 +215,6 @@
   <div id="toast" class="toast hidden">Login realizado com sucesso!</div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
+  <script src="sql-analysis.js"></script>
 </body>
 </html>

@@ -33,7 +33,7 @@ function authError(error) {
 }
 let activeEmail = "";
 function showPage(page) {
-  const selected = ["comparacao", "ajuda", "configuracoes"].includes(page) ? page : "comparacao";
+  const selected = ["comparacao", "sql", "ajuda", "configuracoes"].includes(page) ? page : "comparacao";
   document.querySelectorAll(".app-page").forEach(el => el.classList.toggle("hidden", el.id !== `${selected}Page`));
   document.querySelectorAll(".page-nav a").forEach(link => {
     link.classList.toggle("active", link.dataset.page === selected);
@@ -91,6 +91,10 @@ document.addEventListener("keydown", event => {
 function resetSignedOutView() {
   closeUserMenu();
   clearComparison();
+  document.getElementById("sqlForm").reset();
+  document.getElementById("sqlResults").innerHTML = "";
+  document.getElementById("sqlResults").classList.add("hidden");
+  document.getElementById("sqlStatus").textContent = "";
   activeEmail = "";
   document.getElementById("changePasswordForm").reset();
   document.getElementById("passwordStatus").textContent = "";
@@ -463,16 +467,21 @@ function renderColumnsTable(report) {
   columnsTable.innerHTML = `
     <thead>
       <tr>
-        <th>Coluna</th>
-        <th>Nulos</th>
-        <th>Antiga</th>
-        <th>Otimizada</th>
-        <th>Distintos</th>
-        <th>Antiga</th>
-        <th>Otimizada</th>
-        <th>Soma</th>
-        <th>Antiga</th>
-        <th>Otimizada</th>
+        <th rowspan="2" scope="col">Coluna analisada</th>
+        <th colspan="3" scope="colgroup">Valores vazios (nulos)</th>
+        <th colspan="3" scope="colgroup">Valores diferentes (distintos)</th>
+        <th colspan="3" scope="colgroup">Soma dos valores numéricos</th>
+      </tr>
+      <tr>
+        <th scope="col">Comparação</th>
+        <th scope="col">Antiga</th>
+        <th scope="col">Nova (otimizada)</th>
+        <th scope="col">Comparação</th>
+        <th scope="col">Antiga</th>
+        <th scope="col">Nova (otimizada)</th>
+        <th scope="col">Comparação</th>
+        <th scope="col">Antiga</th>
+        <th scope="col">Nova (otimizada)</th>
       </tr>
     </thead>
     <tbody>${rows || `<tr><td colspan="10">Nenhuma coluna comum encontrada.</td></tr>`}</tbody>
