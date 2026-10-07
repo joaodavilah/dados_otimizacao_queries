@@ -48,3 +48,10 @@ Upload até 50 MB, layout até 24 MB, até 2.000 tabelas e 20.000 medidas/coluna
 O tamanho descompactado pode ser muito maior que o PBIX. O modo on_disk reduz uso de memória, mas não garante processamento de qualquer arquivo em um plano pequeno. A primeira versão deve ser validada com arquivos reais e recursos disponíveis do serviço. Reinícios e falta de memória podem interromper leituras. O navegador aguarda até três minutos; Resetar cancela a espera, mas a API pode continuar até concluir. Arquivos temporários são removidos ao finalizar a requisição; nunca são gravados no Supabase.
 
 Não há promessa de hospedagem gratuita para qualquer tamanho: confira os recursos e limites do plano ao criar o serviço.
+
+## Atualização v13: cobertura ampliada
+A leitura agora procura Report/Layout, Report/report.json e as partes Report/definition/*.json (PBIR) reconhecidas dentro do PBIX. Todas as partes JSON são percorridas, incluindo configurações de visual, filtros, formatação e bookmarks presentes. Arquivos malformados/incompletos continuam bloqueando conclusões negativas. Não há garantia de todos os formatos internos de PBIX.
+
+Dependências DAX qualificadas usam o nome da tabela; nomes ambíguos são preservados conservadoramente. Uso de tabela inteira como argumento de funções protege suas colunas. IDs de colunas são cruzados com tabelas para reconhecer ordenação, níveis de hierarquia, agrupamentos, variações, permissões, colunas relacionadas, alternativas de agregação e referências de calendário quando disponíveis. Colunas sem referência podem ser classificadas como Não é usado ou Usado por não usado quando essa leitura estrutural é confirmada.
+
+A API mudou: aguarde o deploy do Render após atualizar o GitHub e execute uma nova análise. A definição Não é usado se limita às referências encontradas pelos leitores implementados; não equivale a cobertura total do Measure Killer. Os testes incluem layouts sintéticos e dependências simuladas; ainda é necessário validar com PBIX reais e comparar com resultados conhecidos. Grupos de cálculo, funções DAX e KPIs continuam exigindo revisão complementar.

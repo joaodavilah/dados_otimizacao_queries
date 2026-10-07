@@ -56,7 +56,7 @@
       coverageBadge.className = 'pbix-badge ' + (payload.coverage === 'limited' ? 'review' : 'used');
       document.getElementById('pbixFilename').textContent = payload.filename;
       document.getElementById('pbixSummary').innerHTML = [['tables','Tabelas'],['measures','Medidas'],['columns','Colunas'],['used','É usado'],['unused_dependency','Usado por não usado'],['unused','Não é usado'],['review','Analisar']].map(([key,label]) => `<div class="panel pbix-metric"><span>${label}</span><strong>${Number(payload.summary[key])}</strong></div>`).join('');
-      document.getElementById('pbixWarnings').innerHTML = `<p>${escape(payload.limitations)}</p>` + (payload.warnings.length ? `<ul>${payload.warnings.map(w => `<li>${escape(w)}</li>`).join('')}</ul>` : '<p>Layout clássico e expressões lidos. Usos fora deste arquivo continuam fora do escopo.</p>');
+      document.getElementById('pbixWarnings').innerHTML = `<p>${escape(payload.limitations)}</p>` + (payload.warnings.length ? `<ul>${payload.warnings.map(w => `<li>${escape(w)}</li>`).join('')}</ul>` : '<p>Definição do relatório e expressões lidas. Usos fora deste arquivo continuam fora do escopo.</p>');
       result.classList.remove('hidden'); renderRows();
       status.textContent = payload.coverage === 'limited' ? 'Leitura com limitações. Itens sem referência foram encaminhados para revisão.' : 'Análise concluída. Consulte o uso dos itens e valide antes de remover no Power BI.';
     } catch (error) {

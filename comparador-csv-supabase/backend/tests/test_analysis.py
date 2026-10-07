@@ -18,6 +18,43 @@ class AnalysisTests(unittest.TestCase):
         items, _, _ = classify(MEASURES,COLUMNS,[('Total','[Base]'),('Base','SUM(Vendas[Valor])')],[],LAYOUT,True,[])
         result = {i['name']:i['status'] for i in items}
         self.assertEqual(result, {'Total':'used','Base':'used','Sem uso':'unused','Valor':'used','Id':'review'})
+    def test_whole_table_dependency(self):
+        items,_,_ = classify(MEASURES,COLUMNS,[('Total','COUNTROWS(Vendas)')],[],LAYOUT,True,[],{'complete':True,'roots':[]})
+        self.assertTrue(all(i['status']=='used' for i in items if i['type']=='Coluna'))
+    def test_qualified_reference_is_precise(self):
+        measures=[{'TableName':'T','Name':'A'},{'TableName':'Outra','Name':'A'},{'TableName':'T','Name':'Total'}]
+        items,_,_ = classify(measures,[],[('Total',"'T'[A]")],[],LAYOUT,True,[])
+        self.assertEqual(next(i for i in items if i['table']=='Outra')['status'],'unused')
+    def test_mixed_qualified_unqualified_is_conservative(self):
+        measures=[{'TableName':'T','Name':'A'},{'TableName':'Outra','Name':'A'},{'TableName':'T','Name':'Total'}]
+        items,_,_ = classify(measures,[],[('Total',"'T'[A]+[A]")],[],LAYOUT,True,[])
+        self.assertTrue(all(i['status']=='used' for i in items))
+    def test_structural_column_root_and_unused(self):
+        items,_,_ = classify([],COLUMNS,[],[],{'sections':[]},True,[],{'complete':True,'roots':[('Vendas','Id','Ordenação')]})
+        self.assertEqual({i['name']:i['status'] for i in items},{'Valor':'unused','Id':'used'})
+    def test_report_entity_reference(self):
+        measures=[{'TableName':'T','Name':'A'},{'TableName':'Outra','Name':'A'}]
+        layout={'sections':[{'Measure':{'Property':'A','Expression':{'SourceRef':{'Entity':'T'}}}}]}
+        items,_,_ = classify(measures,[],[],[],layout,True,[])
+        self.assertEqual([i['status'] for i in items],['used','unused'])
+    def test_pbir_parts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'modern.pbix'
+            with zipfile.ZipFile(path,'w') as z:
+                z.writestr('Report/definition/report.json','{}')
+                z.writestr('Report/definition/pages/pages.json','{"pageOrder":["p1"]}')
+                z.writestr('Report/definition/pages/p1/page.json','{"name":"p1"}')
+                z.writestr('Report/definition/pages/p1/visuals/v1/visual.json',json.dumps({'Measure':{'Property':'Total'}}))
+            layout=read_layout(path)
+            items,_,_=classify(MEASURES,[],[],[],layout,True,[])
+            self.assertEqual(next(i for i in items if i['name']=='Total')['status'],'used')
+    def test_incomplete_pbir(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'modern.pbix'
+            with zipfile.ZipFile(path,'w') as z:
+                z.writestr('Report/definition/report.json','{}')
+                z.writestr('Report/definition/pages/pages.json','{"pageOrder":["missing"]}')
+            with self.assertRaises(ValueError):read_layout(path)
     def test_unused_chain(self):
         measures = [{'TableName':'T','Name':n} for n in ['A','B','C']]
         items,_,_ = classify(measures,[],[('A','[B]',('T','A','Medida')),('B','[C]',('T','B','Medida'))],[],{'sections':[]},True,[])

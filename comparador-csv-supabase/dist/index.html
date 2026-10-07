@@ -6,7 +6,7 @@
   <title>Multilog | Validador de Queries</title>
   <meta name="description" content="Ferramenta interna para comparar CSVs de queries antigas e otimizadas.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2311294B'/%3E%3Cpath d='M17 17h30v6H17zm0 11h30v6H17zm0 11h20v6H17z' fill='%2300FFFF'/%3E%3Cpath d='M43 40l4 4 8-10' fill='none' stroke='%23FFFFFF' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
   <section id="loginView" class="login-view">
@@ -178,7 +178,7 @@
     </section>
     <section id="ajudaPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
-      <details class="panel pbix-coverage"><summary>Análise de Power BI · como interpretar o uso</summary><p>Verde · É usado: uso encontrado no relatório ou necessário através de dependências de um item usado; relacionamentos e expressões estruturais também preservam itens.</p><p>Amarelo · Usado por não usado: referenciado apenas por cálculos que não chegam a um uso encontrado no relatório.</p><p>Vermelho · Não é usado: nenhum uso ou referência de outro cálculo encontrado no escopo analisado. Confirme usos externos antes de remover.</p><p>Azul · Analisar: não foi possível confirmar. Leitura parcial ou usos estruturais não cobertos impedem afirmar ausência de uso. Colunas sem uso explícito permanecem nesta categoria.</p><p>A lista inicia com todos os resultados. Use o filtro Uso para refinar. Não são verificados outros relatórios, Excel ou modelos remotos. O PBIX não é alterado.</p></details>
+      <details class="panel pbix-coverage"><summary>Análise de Power BI · como interpretar o uso</summary><p>Verde · É usado: uso encontrado no relatório ou necessário através de dependências de um item usado; relacionamentos e expressões estruturais também preservam itens.</p><p>Amarelo · Usado por não usado: referenciado apenas por cálculos que não chegam a um uso encontrado no relatório.</p><p>Vermelho · Não é usado: nenhum uso ou referência de outro cálculo encontrado no escopo analisado. Confirme usos externos antes de remover.</p><p>Azul · Analisar: não foi possível confirmar. Leitura parcial ou usos estruturais não cobertos impedem afirmar ausência de uso. Colunas só recebem uma conclusão de ausência de uso quando a leitura das dependências estruturais foi confirmada.</p><p>A lista inicia com todos os resultados. Use o filtro Uso para refinar. Não são verificados outros relatórios, Excel ou modelos remotos. A leitura inclui o layout clássico ou as partes PBIR reconhecidas, filtros, configurações dos visuais e dependências do modelo. O PBIX não é alterado.</p></details>
       <p class="help-intro">Escolha o assunto para consultar os critérios e entender seu resultado.</p>
       <div class="help-switch" role="group" aria-label="Assunto da ajuda"><button type="button" data-help="sql" aria-pressed="true">Análise SQL · critérios da nota</button><button type="button" data-help="csv" aria-pressed="false">Comparação CSV · indicadores</button></div>
       <section id="helpSql" class="help-topic">
@@ -254,6 +254,6 @@
   <script src="script.js"></script>
   <script src="sql-analysis.js"></script>
   <script src="pbix-config.js"></script>
-  <script src="pbix-analysis.js"></script>
+  <script src="pbix-analysis.js?v=13"></script>
 </body>
 </html>
