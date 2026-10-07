@@ -50,6 +50,7 @@
         <nav class="page-nav" aria-label="Principal">
           <a href="#comparacao" data-page="comparacao" class="active">Comparação de resultados</a>
           <a href="#sql" data-page="sql">Análise de SQL</a>
+          <a href="#powerbi" data-page="powerbi">Análise de Power BI</a>
           <a href="#ajuda" data-page="ajuda">Ajuda</a>
           <a href="#configuracoes" data-page="configuracoes">Configurações</a>
         </nav>
@@ -157,8 +158,26 @@
       <section id="sqlResults" class="hidden" aria-label="Resultado da análise SQL"></section>
       <section id="sqlAiResults" class="hidden panel sql-issue" aria-label="Análise complementar da IA"></section>
     </section>
+    <section id="powerbiPage" class="workspace app-page hidden">
+      <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m2 0V4h4v16m2 0V7h4v13M2 20h20"/></svg>Análise de Power BI</h2></div>
+      <form id="pbixForm" class="panel pbix-upload">
+        <h3>Encontre o que merece revisão no seu painel</h3>
+        <p>Envie o PBIX para consultar medidas, colunas e referências. O arquivo original permanece intacto.</p>
+        <label class="pbix-file-label" for="pbixFile">Arquivo do painel · .pbix<input id="pbixFile" type="file" accept=".pbix" required aria-describedby="pbixHint"></label>
+        <div class="pbix-upload-footer"><p id="pbixHint">Até 50 MB. O arquivo é enviado à API de análise e removido do armazenamento temporário ao concluir. Sem IA.</p><div class="sql-action-buttons"><button type="reset" class="ghost">Resetar</button><button type="submit">Analisar</button></div></div>
+      </form>
+      <p id="pbixStatus" class="status" role="status" aria-live="polite"></p>
+      <section id="pbixResults" class="hidden" aria-label="Resultado da análise Power BI">
+        <p id="pbixFilename" class="pbix-filename"></p>
+        <div id="pbixSummary" class="pbix-summary"></div>
+        <details class="panel pbix-coverage" open><summary>Escopo e limitações da análise</summary><div id="pbixWarnings"></div></details>
+        <article class="panel pbix-list"><div class="pbix-list-head"><div><h3>Itens do modelo</h3><p id="pbixCount"></p></div><div class="pbix-filters"><label for="pbixSearch">Buscar<input id="pbixSearch" type="search" placeholder="Nome ou tabela"></label><label for="pbixFilter">Classificação<select id="pbixFilter"><option value="candidate">Candidatas à remoção</option><option value="review">Precisa de revisão</option><option value="used">Referência encontrada</option><option value="">Todos os itens</option></select></label></div></div>
+        <div class="table-wrap"><table class="pbix-table"><thead><tr><th>Nome / tipo</th><th>Tabela</th><th>Classificação</th><th>Motivo / referências</th></tr></thead><tbody id="pbixRows"></tbody></table></div></article>
+      </section>
+    </section>
     <section id="ajudaPage" class="workspace app-page hidden">
       <div class="page-head"><h2 class="validation-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4m.1 3h.01"/></svg>Ajuda</h2></div>
+      <details class="panel pbix-coverage"><summary>Análise de Power BI · como interpretar</summary><p>Referência encontrada: o item aparece no relatório, em uma expressão lida ou em um relacionamento. Uma dependência encontrada é preservada mesmo quando o cálculo que a utiliza também parece não ter uso.</p><p>Candidata à remoção: medida sem referências encontradas no layout clássico e nas expressões extraídas. Revise no Power BI Desktop antes de remover; não há garantia de ausência de usos externos.</p><p>Precisa de revisão: coluna sem referência explícita, leitura parcial, visual não coberto ou formato não reconhecido. A falta de leitura nunca é tratada como ausência de uso.</p><p>O PBIX não é alterado. Esta versão não analisa usos em outros relatórios, Excel ou modelos remotos; não reproduz toda a cobertura do Measure Killer.</p></details>
       <p class="help-intro">Escolha o assunto para consultar os critérios e entender seu resultado.</p>
       <div class="help-switch" role="group" aria-label="Assunto da ajuda"><button type="button" data-help="sql" aria-pressed="true">Análise SQL · critérios da nota</button><button type="button" data-help="csv" aria-pressed="false">Comparação CSV · indicadores</button></div>
       <section id="helpSql" class="help-topic">
@@ -233,5 +252,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script src="sql-analysis.js"></script>
+  <script src="pbix-config.js"></script>
+  <script src="pbix-analysis.js"></script>
 </body>
 </html>

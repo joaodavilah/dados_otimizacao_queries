@@ -33,7 +33,7 @@ function authError(error) {
 }
 let activeEmail = "";
 function showPage(page) {
-  const selected = ["comparacao", "sql", "ajuda", "configuracoes"].includes(page) ? page : "comparacao";
+  const selected = ["comparacao", "sql", "powerbi", "ajuda", "configuracoes"].includes(page) ? page : "comparacao";
   document.querySelectorAll(".app-page").forEach(el => el.classList.toggle("hidden", el.id !== `${selected}Page`));
   document.querySelectorAll(".page-nav a").forEach(link => {
     link.classList.toggle("active", link.dataset.page === selected);
@@ -91,6 +91,7 @@ document.addEventListener("keydown", event => {
 function resetSignedOutView() {
   closeUserMenu();
   clearComparison();
+  document.getElementById("pbixForm").reset();
   document.getElementById("sqlForm").reset();
   document.getElementById("sqlResults").innerHTML = "";
   document.getElementById("sqlResults").classList.add("hidden");

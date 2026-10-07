@@ -850,3 +850,43 @@ body .nav-title { font-weight: 600 !important; color: white; display: flex; just
 .sql-actions .sql-reset { background: transparent; color: #ffffff; border: 1px solid #718396; }
 .sql-actions .sql-reset:hover { border-color: var(--cyan); }
 @media (max-width: 600px) { .sql-action-buttons button { flex: 1; } }
+.pbix-upload { padding: 28px; max-width: 1100px; margin: 0 auto; }
+.pbix-upload h3 { margin: 0 0 12px; font-size: 22px; }
+.pbix-upload p, .pbix-coverage { color: var(--muted); line-height: 1.65; }
+.pbix-file-label { display: block; padding: 24px; margin: 24px 0; border: 1px dashed #718396; border-radius: 12px; background: #18232e; }
+.pbix-file-label input { display: block; width: 100%; margin-top: 16px; color: white; }
+.pbix-file-label input::file-selector-button { background: var(--navy); color: white; border: 1px solid #718396; border-radius: 8px; padding: 10px 16px; margin-right: 14px; cursor: pointer; }
+.pbix-upload-footer, .pbix-list-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.pbix-upload-footer p { max-width: 630px; font-size: 13px; }
+.pbix-upload-footer button[type="submit"] { background: var(--cyan); color: var(--navy); padding: 10px 24px; }
+.pbix-upload-footer button:disabled { opacity: .5; cursor: wait; }
+.pbix-summary { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 16px; margin-bottom: 20px; }
+.pbix-metric { padding: 20px; min-width: 0; }
+.pbix-metric span { color: var(--muted); font-size: 14px; }
+.pbix-metric strong { display: block; margin-top: 12px; color: var(--cyan); font-size: 30px; }
+.pbix-coverage { padding: 20px; margin: 20px 0; }
+.pbix-coverage summary { cursor: pointer; color: white; }
+.pbix-list-head { padding: 22px; }
+.pbix-list-head h3 { margin: 0 0 8px; }
+.pbix-list-head p { color: var(--muted); margin: 0; }
+.pbix-filters { display: flex; gap: 16px; }
+.pbix-filters label { color: var(--muted); font-size: 13px; }
+.pbix-filters input, .pbix-filters select { display: block; margin: 8px 0 0; background: #18232e; color: white; border: 1px solid #718396; border-radius: 8px; padding: 10px; color-scheme: dark; }
+.pbix-filters option { background: #18232e; color: white; }
+.pbix-table th { text-transform: none; white-space: nowrap; }
+.pbix-table td { vertical-align: top; max-width: 500px; overflow-wrap: anywhere; line-height: 1.6; }
+.pbix-table small { display: block; color: var(--muted); }
+.pbix-table details { margin-top: 10px; color: var(--muted); }
+.pbix-table summary { cursor: pointer; color: var(--cyan); }
+.pbix-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 13px; background: #334352; color: white; }
+.pbix-badge.used { background: #163d38; color: #78e9bf; }
+.pbix-badge.candidate { background: #454029; color: #f1d691; }
+.pbix-badge.review { background: #293f58; color: #b9d8f6; }
+@media (max-width: 1100px) { .pbix-summary { grid-template-columns: repeat(3,minmax(0,1fr)); } .pbix-list-head { align-items: flex-start; flex-direction: column; } .page-nav { flex-wrap: wrap; } }
+@media (max-width: 600px) { .pbix-upload { padding: 18px; } .pbix-upload-footer { align-items: stretch; flex-direction: column; gap: 10px; } .pbix-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .pbix-filters { width: 100%; flex-direction: column; } .pbix-filters input, .pbix-filters select { width: 100%; } }
+/* Keep the additional navigation item inside the header at intermediate widths. */
+@media (min-width: 901px) and (max-width: 1500px) {
+  .topbar-left { grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr) minmax(140px, 1fr); }
+  .page-nav { flex-wrap: wrap; }
+  .page-nav a { font-size: 14px; padding: 10px 12px; }
+}
