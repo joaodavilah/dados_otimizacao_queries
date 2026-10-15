@@ -28,7 +28,8 @@ class AnalysisTests(unittest.TestCase):
     def test_mixed_qualified_unqualified_is_conservative(self):
         measures=[{'TableName':'T','Name':'A'},{'TableName':'Outra','Name':'A'},{'TableName':'T','Name':'Total'}]
         items,_,_ = classify(measures,[],[('Total',"'T'[A]+[A]")],[],LAYOUT,True,[])
-        self.assertTrue(all(i['status']=='used' for i in items))
+        self.assertEqual({(i['table'],i['name']):i['status'] for i in items},
+                         {('T','A'):'used',('Outra','A'):'review',('T','Total'):'used'})
     def test_structural_column_root_and_unused(self):
         items,_,_ = classify([],COLUMNS,[],[],{'sections':[]},True,[],{'complete':True,'roots':[('Vendas','Id','Ordenação')]})
         self.assertEqual({i['name']:i['status'] for i in items},{'Valor':'unused','Id':'used'})
@@ -86,10 +87,10 @@ class AnalysisTests(unittest.TestCase):
     def test_relationship_protection(self):
         items,_,_ = classify([],COLUMNS,[],[{'FromTableName':'Vendas','FromColumnName':'Id'}],LAYOUT,True,[])
         self.assertEqual(next(i for i in items if i['name']=='Id')['status'],'used')
-    def test_ambiguous_names_protect_all(self):
+    def test_ambiguous_names_need_review_not_confirmed_use(self):
         measures = MEASURES + [{'TableName':'Outra','Name':'Base'}]
         items,_,_ = classify(measures,[],[('Total','[Base]')],[],LAYOUT,True,[])
-        self.assertTrue(all(i['status']=='used' for i in items if i['name']=='Base'))
+        self.assertTrue(all(i['status']=='review' for i in items if i['name']=='Base'))
     def test_utf16_layout(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'sample.pbix'

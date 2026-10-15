@@ -2,7 +2,10 @@
 import json
 import re
 import zipfile
-from collections import defaultdict
+from collections import defaultdict, deque
+
+from .dax_dependencies import references
+from .model_metadata import EmbeddedMetadata, model_inventory, model_dependencies
 
 MAX_LAYOUT = 24 * 1024 * 1024
 
@@ -92,142 +95,273 @@ def classify(measures, columns, expressions, relationships, layout, complete, wa
             table = row.get('TableName')
             if name and table:
                 items.append({'type': kind, 'table': str(table), 'name': str(name), 'evidence': []})
-    index_by_key = {(i['table'].casefold(), i['name'].casefold(), i['type']): n for n, i in enumerate(items)}
-    by_name = defaultdict(list)
-    for item in items:
-        by_name[item['name'].casefold()].append(item)
+    key = lambda table, name, kind: (str(table).casefold(), str(name).casefold(), kind)
+    index_by_key = {key(i['table'], i['name'], i['type']): n for n, i in enumerate(items)}
+    by_name, by_table, by_query_ref = defaultdict(list), defaultdict(list), defaultdict(list)
+    for n, item in enumerate(items):
+        by_name[item['name'].casefold()].append(n)
+        by_table[item['table'].casefold()].append(n)
+        by_query_ref[(item['table'] + '.' + item['name']).casefold()].append(n)
+    known_tables = list(dict.fromkeys(i['table'] for i in items))
+    roots, edges, incoming = set(), defaultdict(set), defaultdict(set)
+    root_reasons, uncertain = {}, defaultdict(list)
+    global_complete = complete
+    global_reasons = list(warnings) if not complete else []
+    structural = structural or {'complete': False}
 
-    roots = set()
-    edges = defaultdict(set)
-    incoming = defaultdict(set)
+    def block(reason):
+        nonlocal global_complete
+        global_complete = False
+        global_reasons.append(reason)
+        warnings.append(reason)
+
+    def evidence(n, reason):
+        if reason not in items[n]['evidence'] and len(items[n]['evidence']) < 10:
+            items[n]['evidence'].append(reason)
+
+    def doubt(ids, reason):
+        for n in ids:
+            if reason not in uncertain[n]:
+                uncertain[n].append(reason)
+        if reason not in warnings:
+            warnings.append(reason)
+
+    def candidates(name, table=None, kind=None):
+        return [n for n in by_name.get(str(name).casefold(), [])
+                if (not table or items[n]['table'].casefold() == str(table).casefold())
+                and (not kind or items[n]['type'] == kind)]
+
     def mark(name, reason, table=None, kind=None):
-        found = False
-        for item in by_name.get(str(name).casefold(), []):
-            if table and item['table'].casefold() != str(table).casefold():
-                continue
-            if kind and item['type'] != kind:
-                continue
-            if reason not in item['evidence']:
-                item['evidence'].append(reason)
-            roots.add(index_by_key[(item['table'].casefold(), item['name'].casefold(), item['type'])])
-            found = True
-        return found
+        targets = candidates(name, table, kind)
+        if len(targets) > 1:
+            doubt(targets, f'Referência ambígua a [{name}] em {reason}; falta identificar a tabela.')
+        elif targets:
+            n = targets[0]
+            roots.add(n)
+            root_reasons.setdefault(n, reason)
+            evidence(n, reason)
+        return bool(targets)
+
+    def link(source, target, reason):
+        edges[source].add(target)
+        incoming[target].add(source)
+        evidence(target, reason)
 
     for entry in expressions:
         label, expression = entry[:2]
         owner = entry[2] if len(entry) > 2 else None
-        sources = [i for i, item in enumerate(items) if owner and
-                   item['table'] == owner[0] and item['name'] == owner[1] and item['type'] == owner[2]]
-        # Compatibility for fixtures/legacy callers using a measure name as label.
+        sources = [index_by_key[key(*owner)]] if owner and key(*owner) in index_by_key else []
         if len(entry) == 2:
-            sources = [index_by_key[(item['table'].casefold(), item['name'].casefold(), item['type'])] for item in by_name.get(label.casefold(), []) if item['type'] == 'Medida']
-        cleaned = re.sub(r'"(?:""|[^"])*"|//[^\n]*|--[^\n]*|/\*.*?\*/', lambda m: ' ' * len(m.group()), expression or '', flags=re.S)
-        qualified = {}
-        for match in re.finditer(r"(?:'((?:''|[^'])+)'|([\w]+))\s*\[((?:\]\]|[^\]])+)\]", cleaned):
-            name = match[3].replace(']]', ']')
-            qualified.setdefault(name.casefold(), set()).add((match[1] or match[2]).replace("''", "'").casefold())
-        bracket_names = dax_refs(expression)
-        for name in list(qualified):
-            occurrences = sum(n.casefold() == name for n in bracket_names)
-            qualified_occurrences = sum(m[3].replace(']]', ']').casefold() == name for m in re.finditer(r"(?:'((?:''|[^'])+)'|([\w]+))\s*\[((?:\]\]|[^\]])+)\]", cleaned))
-            if occurrences > qualified_occurrences:
-                del qualified[name]
-        refs = [(name, by_name.get(name.casefold(), []), False) for name in bracket_names]
-        for table in {i['table'] for i in items}:
-            escaped = table.replace("'", "''")
-            # Table used as an argument (COUNTROWS/FILTER/ALL/VALUES/etc.) or table variable source.
-            pattern = r"(?<![\w'])" + (re.escape("'" + escaped + "'") + (r'|' + re.escape(table) + r'(?![\w])' if re.fullmatch(r'\w+', table) else ''))
-            if re.search(r'(?:^|[,(=])\s*(?:' + pattern + r')\s*(?=[,)]|$)', cleaned):
-                refs.extend((i['name'], [i], True) for i in items if i['type'] == 'Coluna' and i['table'] == table)
-        for name, targets, whole_table in refs:
-            if not whole_table and name.casefold() in qualified:
-                targets = [t for t in targets if t['table'].casefold() in qualified[name.casefold()]]
+            sources = candidates(label, kind='Medida')
+        refs, whole_tables, virtual, problems = references(expression, known_tables)
+        for problem in problems:
+            reason = problem + ' Em ' + label
+            block(reason)
+        if problems:
+            # Invalid lexical input can hide arbitrary references, so its
+            # apparent tokens must not prove either use or non-use.
+            continue
+        for table, name in refs:
+            targets = candidates(name, table)
+            # Local virtual columns do not exist in the semantic inventory.
+            if not targets and not table and name.casefold() in virtual:
+                continue
             if not targets:
-                complete = False
-                warnings.append('Uma expressão contém referências não resolvidas; itens sem uso precisam de análise.')
-            for target in targets:
-                target_id = index_by_key[(target['table'].casefold(), target['name'].casefold(), target['type'])]
-                reason = 'Dependência em ' + label
-                if reason not in target['evidence']:
-                    target['evidence'].append(reason)
+                reason = f'Referência DAX não resolvida: {table or ""}[{name}] em {label}.'
+                if sources:
+                    doubt(sources, reason)
+                else:
+                    block(reason)
+                continue
+            if len(targets) > 1 or (not table and name.casefold() in virtual):
+                doubt(targets, f'Referência DAX ambígua a [{name}] em {label}.')
+                # Possible references are not confirmed edges. Doubt is propagated
+                # separately so a possible match never turns green.
+                for target in targets:
+                    incoming[target].update(sources)
+                continue
+            target = targets[0]
+            reason = 'Dependência em ' + label
+            if sources:
+                for source in sources:
+                    link(source, target, reason)
+            else:
+                roots.add(target)
+                root_reasons.setdefault(target, reason)
+                evidence(target, reason)
+        for table in whole_tables:
+            for target in by_table[table.casefold()]:
+                if items[target]['type'] != 'Coluna':
+                    continue
+                reason = 'Tabela inteira referenciada em ' + label
                 if sources:
                     for source in sources:
-                        edges[source].add(target_id)
-                        incoming[target_id].add(source)
+                        link(source, target, reason)
                 else:
-                    # Security / table expressions without an inventory owner are roots.
-                    roots.add(target_id)
+                    roots.add(target)
+                    root_reasons.setdefault(target, reason)
+                    evidence(target, reason)
+
     for relation in relationships:
         for side in ('From', 'To'):
-            mark(relation.get(side + 'ColumnName', ''), 'Participa de relacionamento', relation.get(side + 'TableName'), 'Coluna')
+            if relation.get(side + 'ColumnName') and not mark(relation[side + 'ColumnName'], 'Participa de relacionamento', relation.get(side + 'TableName'), 'Coluna'):
+                structural['complete'] = False
+                warnings.append('Coluna de relacionamento não encontrada no inventário.')
+    for table, name, reason in structural.get('roots', []):
+        if not mark(name, reason, table, 'Coluna'):
+            structural['complete'] = False
+            warnings.append('Dependência estrutural sem correspondência no inventário.')
+    for table, name, reason in structural.get('measure_roots', []):
+        if not mark(name, reason, table, 'Medida'):
+            block('Medida estrutural sem correspondência no inventário.')
+    for owner, target, reason in structural.get('edges', []):
+        source_id, target_id = index_by_key.get(key(*owner)), index_by_key.get(key(*target))
+        if source_id is None or target_id is None:
+            structural['complete'] = False
+            warnings.append('Dependência estrutural sem correspondência no inventário.')
+        else:
+            link(source_id, target_id, reason + f' de {owner[0]}[{owner[1]}]')
 
-    if structural:
-        for table, name, reason in structural.get('roots', []):
-            if not mark(name, reason, table, 'Coluna'):
-                complete = False
-                warnings.append('Dependência estrutural sem correspondência no inventário.')
     if layout is not None:
-        aliases = defaultdict(set)
-        for _, node in walk(layout):
+        aliases = defaultdict(lambda: defaultdict(set))
+        for path, node in walk(layout):
             if isinstance(node, dict) and node.get('Name') and node.get('Entity'):
-                aliases[str(node['Name'])].add(str(node['Entity']))
+                scope = path.split('/From/')[0] if '/From/' in path else path.rsplit('/', 1)[0]
+                aliases[scope][str(node['Name'])].add(str(node['Entity']))
+
+        def entity(source_ref, path):
+            if source_ref.get('Entity'):
+                return {source_ref['Entity']}
+            alias = source_ref.get('Source')
+            if alias:
+                scopes = [s for s in aliases if path == s or path.startswith(s + '/')]
+                for scope in sorted(scopes, key=len, reverse=True):
+                    if alias in aliases[scope]:
+                        return aliases[scope][alias]
+                # Cross-part queries sometimes carry the alias in another JSON.
+                return set().union(*(a.get(alias, set()) for a in aliases.values()))
+            return set()
+
+        def report_ref(name, source_ref, kind, path):
+            tables = entity(source_ref, path)
+            reason = 'Referência no relatório: ' + path
+            if source_ref.get('Source') and not tables:
+                targets = candidates(name, kind=kind)
+                doubt(targets, f'Alias de tabela não resolvido para [{name}] em {path}.')
+                if not targets:
+                    block('Alias sem correspondência no inventário em ' + path)
+                return
+            if len(tables) > 1:
+                targets = [n for n in candidates(name, kind=kind) if items[n]['table'] in tables]
+                doubt(targets, f'Alias de tabela ambíguo para [{name}] em {path}.')
+                if not targets:
+                    block('Alias sem correspondência no inventário em ' + path)
+                return
+            if not mark(name, reason, next(iter(tables), None), kind):
+                block('Referência do relatório não encontrada: ' + str(name) + ' em ' + path)
+
         for path, node in walk(layout):
             if isinstance(node, dict):
-                for field, kind in [('Measure', 'Medida'), ('Column', 'Coluna')]:
+                for field, kind in [('Measure', 'Medida'), ('Column', 'Coluna'), ('PropertyVariationSource', 'Coluna')]:
                     ref = node.get(field)
                     if isinstance(ref, dict) and ref.get('Property'):
                         source_ref = ref.get('Expression', {}).get('SourceRef', {})
-                        tables = {source_ref['Entity']} if source_ref.get('Entity') else aliases.get(source_ref.get('Source'), set())
-                        found = False
-                        for table in tables or {None}:
-                            found = mark(ref['Property'], 'Referência no relatório: ' + path, table, kind) or found
-                        if not found:
-                            complete = False
-                            warnings.append('O relatório contém referências sem correspondência no modelo extraído.')
+                        report_ref(ref['Property'], source_ref, kind, path)
+                level = node.get('HierarchyLevel')
+                if isinstance(level, dict):
+                    hierarchy = level.get('Expression', {}).get('Hierarchy', {})
+                    tables = entity(hierarchy.get('Expression', {}).get('SourceRef', {}), path)
+                    matched = [h for h in structural.get('hierarchies', [])
+                               if h.get('name') == hierarchy.get('Hierarchy')
+                               and (not tables or h.get('table') in tables)
+                               and h.get('level') == level.get('Level')]
+                    if matched:
+                        for h in matched:
+                            mark(h['column'][1], 'Nível de hierarquia no relatório: ' + path, h['column'][0], 'Coluna')
+                    else:
+                        block('Nível de hierarquia do relatório não resolvido em ' + path)
                 visual = node.get('visualType')
                 if visual and str(visual).casefold() not in {
-                    'tableex','pivotTable'.casefold(),'card','cardvisual','multirowcard','slicer',
+                    'tableex','pivottable','card','cardvisual','multirowcard','slicer',
                     'barchart','columnchart','clusteredbarchart','clusteredcolumnchart','stackedbarchart',
                     'stackedcolumnchart','hundredpercentstackedbarchart','hundredpercentstackedcolumnchart',
                     'linechart','areachart','stackedareachart','piechart','donutchart','scatterchart',
                     'waterfallchart','treemap','gauge','kpi','map','filledmap','textbox','image','shape',
                     'actionbutton','lineclusteredcolumncombochart','linestackedcolumncombochart',
-                    'advancedSlicerVisual'.casefold(),'azuremap','funnel','ribbonchart','decompositiontreevisual','keydriversvisual'}:
-                    complete = False
-                    warnings.append('Visual não coberto nesta versão: ' + str(visual) + '. Itens sem uso ficam para revisão.')
-            elif isinstance(node, str):
-                for name in dax_refs(node):
-                    mark(name, 'Referência textual no relatório: ' + path)
-                # queryRef convention Table.Measure; false positives retain items.
-                for item in items:
-                    if (item['table'] + '.' + item['name']).casefold() in node.casefold():
-                        mark(item['name'], 'Referência textual no relatório: ' + path, item['table'], item['type'])
+                    'advancedslicervisual','azuremap','funnel','ribbonchart','decompositiontreevisual','keydriversvisual'}:
+                    block('Visual não coberto nesta versão: ' + str(visual) + '. Itens sem uso ficam para revisão.')
+            elif isinstance(node, str) and path.rsplit('/', 1)[-1].casefold() in ('queryref', 'queryname', 'field'):
+                # Exact semantic names only: titles and substring matches do not
+                # prove usage (T.A must not match T.Antiga).
+                value = node.strip()
+                wrapped = re.fullmatch(r'[\w]+\((.*)\)', value)
+                if wrapped:
+                    value = wrapped[1]
+                targets = by_query_ref.get(value.casefold(), [])
+                if len(targets) > 1:
+                    doubt(targets, 'Tipo de objeto ambíguo no campo da consulta: ' + path)
+                elif targets:
+                    item = items[targets[0]]
+                    mark(item['name'], 'Campo da consulta do visual: ' + path, item['table'], item['type'])
 
     reachable = set(roots)
-    pending = list(roots)
+    parents, origins = {}, {n: n for n in roots}
+    pending = deque(sorted(roots))
     while pending:
-        source = pending.pop()
-        for target in edges[source]:
+        source = pending.popleft()
+        for target in sorted(edges[source]):
             if target not in reachable:
                 reachable.add(target)
+                parents[target], origins[target] = source, origins[source]
                 pending.append(target)
+    # An ambiguous reference only affects the possible targets and their known
+    # dependency chains. Missing layout/model still blocks negatives globally.
+    pending = deque(sorted(uncertain))
+    while pending:
+        source = pending.popleft()
+        for target in sorted(edges[source]):
+            if target not in uncertain:
+                uncertain[target] = ['Depende de uma referência que não foi confirmada: ' + items[source]['name']]
+                pending.append(target)
+
+    def label(n):
+        return items[n]['table'] + '[' + items[n]['name'] + ']'
+
     for index, item in enumerate(items):
+        item['review_reasons'] = []
+        item['usage_path'] = []
+        item['used_by'] = [label(n) for n in sorted(incoming[index])[:10]]
         if index in reachable:
             item['status'] = 'used'
             item['reason'] = ('Uso encontrado no relatório ou em uma dependência estrutural.' if index in roots else
                               'Necessário para um item com uso encontrado, através da cadeia de dependências.')
-        elif not complete or (item['type'] == 'Coluna' and not (structural and structural.get('complete'))):
+            path, cursor = [], index
+            for _ in range(16):
+                path.append(label(cursor))
+                if cursor not in parents:
+                    break
+                cursor = parents[cursor]
+            root = origins[index]
+            prefix = [root_reasons[root]]
+            if cursor in parents:
+                prefix += [label(root), '… dependências intermediárias …']
+            item['usage_path'] = prefix + list(reversed(path))
+        elif not global_complete or index in uncertain or (item['type'] == 'Coluna' and not structural.get('complete')):
             item['status'] = 'review'
-            item['reason'] = ('Analisar: não foi possível confirmar o uso devido às limitações da leitura.' if not complete else
-                              'Analisar: usos estruturais e cálculos sobre a tabela inteira exigem revisão.')
+            reasons = list(uncertain.get(index, []))
+            if not global_complete:
+                reasons += global_reasons[:4] or ['Leitura do modelo ou relatório incompleta.']
+            if item['type'] == 'Coluna' and not structural.get('complete'):
+                reasons.append('Não foi possível confirmar todas as dependências estruturais de colunas.')
+            item['review_reasons'] = list(dict.fromkeys(reasons))[:8]
+            item['reason'] = 'Analisar: ' + item['review_reasons'][0]
         elif incoming[index]:
             item['status'] = 'unused_dependency'
-            item['reason'] = 'Referenciado apenas por cálculos que não chegam a um uso encontrado no relatório analisado.'
+            item['reason'] = 'Referenciado apenas por itens que não chegam a um uso encontrado no relatório analisado.'
         else:
             item['status'] = 'unused'
             item['reason'] = 'Nenhum uso ou referência de outro cálculo encontrado no escopo analisado. Valide usos externos antes de remover.'
-        item['evidence'] = item['evidence'][:10]
-    return items, complete, list(dict.fromkeys(warnings))
+    return items, global_complete and not uncertain and not any(i['status'] == 'review' for i in items), list(dict.fromkeys(warnings))
 
 
 def extract_pbix(path, filename):
@@ -245,79 +379,39 @@ def extract_pbix(path, filename):
     try:
         from pbixray import PBIXRay
         model = PBIXRay(path, on_disk=True)
-        tables = [str(x) for x in model.tables]
-        if len(tables) > 2000:
-            raise ValueError('Modelo excede 2.000 tabelas.')
-        measures = records(model.dax_measures)
-        columns = records(model.schema)
-        relationships = records(model.relationships)
-        if len(measures) + len(columns) > 20000:
-            raise ValueError('Modelo excede 20.000 medidas e colunas.')
-        for attr in ('dax_measures', 'dax_columns', 'dax_tables', 'rls',
-                     'tmschema_calculation_items', 'tmschema_format_string_definitions',
-                     'tmschema_detail_rows_definitions', 'tmschema_kpis',
-                     'tmschema_calculation_expressions', 'tmschema_functions'):
-            try:
-                rows = records(getattr(model, attr))
-                for row in rows:
-                    for key, value in row.items():
-                        if isinstance(value, str) and ('expression' in key.casefold() or key.casefold() in ('filter', 'kpi', 'definition')):
-                            owner = (row.get('TableName'), row.get('Name') or row.get('ColumnName'), 'Medida' if attr == 'dax_measures' else 'Coluna') if attr in ('dax_measures', 'dax_columns') else None
-                            expressions.append((f"{attr}: {row.get('TableName', '')} {row.get('Name', '')}", value, owner))
-                if attr in ('tmschema_calculation_items', 'tmschema_calculation_expressions', 'tmschema_functions', 'tmschema_kpis') and rows:
-                    complete = False
-                    warnings.append('Grupos de cálculo, KPIs ou funções DAX exigem revisão adicional nesta versão.')
-            except Exception:
-                complete = False
-                warnings.append('Não foi possível ler todas as dependências em ' + attr + '.')
         try:
-            table_rows = records(model.tmschema_tables)
-            column_rows = records(model.tmschema_columns)
-            table_names = {str(r['ID']): r['Name'] for r in table_rows}
-            column_names = {}
-            for row in column_rows:
-                name = row.get('ExplicitName') or row.get('Name') or row.get('InferredName')
-                table = table_names.get(str(row.get('TableID')))
-                if name and table:
-                    column_names[str(row['ID'])] = (table, name)
-            if len(column_names) < len(columns):
-                raise ValueError('Inventário estrutural incompleto')
-            structural_rows = [('Ordenação e propriedades da coluna', column_rows)]
-            for attr, label in [('tmschema_levels', 'Nível de hierarquia'),
-                                ('tmschema_group_by_columns', 'Agrupamento estrutural'),
-                                ('tmschema_variations', 'Variação e hierarquia de data'),
-                                ('tmschema_column_permissions', 'Segurança de coluna'),
-                                ('tmschema_related_column_details', 'Dependência entre colunas'),
-                                ('tmschema_alternate_of', 'Agregação / coluna alternativa'),
-                                ('tmschema_calendar_column_refs', 'Calendário'),
-                                ('tmschema_calendar_column_groups', 'Grupo de calendário')]:
-                structural_rows.append((label, records(getattr(model, attr))))
-            for label, rows in structural_rows:
-                for row in rows:
-                    for key, value in row.items():
-                        normal = key.replace('_', '').casefold()
-                        if value is not None and str(value) not in ('0', '-1') and normal.endswith('columnid'):
-                            # A column's own ID is not a usage. Foreign column IDs are structural references.
-                            if label == 'Ordenação e propriedades da coluna' and normal == 'columnid':
-                                continue
-                            pair = column_names.get(str(value))
-                            if pair:
-                                structural['roots'].append((*pair, label))
-                            else:
-                                raise ValueError('Referência estrutural não resolvida')
-            structural['complete'] = True
+            metadata = EmbeddedMetadata(model)
+            tables, measures, columns, relationships, names, column_ids, measure_ids = model_inventory(metadata)
+            expressions, structural, dependencies_complete, dependency_warnings = model_dependencies(metadata, names, column_ids, measure_ids)
+            complete = complete and dependencies_complete
+            warnings.extend(dependency_warnings)
         except Exception:
-            warnings.append('Parte das dependências estruturais de colunas não foi confirmada; colunas sem uso ficam em Analisar.')
-        # Validate inventory instead of silently assuming schema field names.
-        if any(not (r.get('TableName') and (r.get('Name') or r.get('ColumnName'))) for r in columns + measures):
+            # Keep positive findings if the strict metadata reader cannot handle
+            # a model. Public views are not sufficient to prove absence of use.
             complete = False
-            warnings.append('Parte do inventário tem estrutura não reconhecida.')
+            structural = {'roots': [], 'complete': False}
+            warnings.append('Leitura lógica e estrutural do modelo incompleta; inventário alternativo não permite confirmar ausência de uso.')
+            if not measures and not columns:
+                tables = [str(x) for x in model.tables]
+                measures = records(model.dax_measures)
+                columns = records(model.schema)
+                relationships = records(model.relationships)
+            expressions = []
+            for attr in ('dax_measures', 'dax_columns', 'dax_tables', 'rls'):
+                for row in records(getattr(model, attr)):
+                    for field, value in row.items():
+                        if isinstance(value, str) and ('expression' in field.casefold() or field.casefold() == 'filter'):
+                            owner = (row.get('TableName'), row.get('Name') or row.get('ColumnName'),
+                                     'Medida' if attr == 'dax_measures' else 'Coluna') if attr in ('dax_measures', 'dax_columns') else None
+                            expressions.append((attr + ': ' + str(row.get('Name', '')), value, owner))
     except Exception:
         complete = False
         warnings.append('Modelo não extraído integralmente. PBIX protegido, conexão remota ou formato incompatível podem exigir outra abordagem.')
     finally:
         if model is not None:
             model.close()
+    if len(tables) > 2000 or len(measures) + len(columns) > 20000:
+        raise ValueError('Modelo excede o limite de 2.000 tabelas ou 20.000 medidas e colunas.')
     items, complete, warnings = classify(measures, columns, expressions, relationships, layout, complete, warnings, structural)
     if not tables and not items:
         raise ValueError('Não foi possível extrair o modelo deste PBIX. Relatórios com modelo remoto não contêm todo o inventário necessário.')
@@ -327,6 +421,6 @@ def extract_pbix(path, filename):
                'unused': sum(i['status'] == 'unused' for i in items),
                'unused_dependency': sum(i['status'] == 'unused_dependency' for i in items),
                'review': sum(i['status'] == 'review' for i in items)}
-    return {'filename': filename, 'summary': summary, 'items': items, 'warnings': warnings,
+    return {'filename': filename, 'analysis_version': 14, 'summary': summary, 'items': items, 'warnings': warnings,
             'coverage': 'limited' if not complete else 'expanded',
             'limitations': 'Análise estática conservadora do arquivo enviado, sem executar DAX. Referências de outros relatórios, Excel, modelos compartilhados e usos externos não são verificadas. Colunas sem uso só são classificadas quando a leitura estrutural é confirmada; casos não cobertos permanecem em Analisar. Não modifica nem exclui itens do PBIX.'}

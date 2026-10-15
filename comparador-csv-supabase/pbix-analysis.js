@@ -12,6 +12,13 @@
   let report = null, controller = null, generation = 0;
   const labels = { used: 'É usado', unused_dependency: 'Usado por não usado', unused: 'Não é usado', review: 'Analisar' };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function findingDetails(item) {
+    const list = (values, title, ordered = false) => values?.length ? `<details><summary>${title}</summary><${ordered ? 'ol' : 'ul'} class="pbix-evidence-list">${values.map(value => `<li>${escape(value)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}></details>` : '';
+    return list(item.usage_path, 'Como o uso foi encontrado', true)
+      + list(item.used_by, 'Itens que referenciam este objeto')
+      + list(item.review_reasons, 'O que impediu a confirmação')
+      + list(item.evidence, `Ver referências (${item.evidence?.length || 0})`);
+  }
   function clear() {
     generation++; controller?.abort(); controller = null; report = null;
     result.classList.add('hidden'); document.getElementById('pbixRows').innerHTML = '';
@@ -24,7 +31,7 @@
     const q = search.value.trim().toLocaleLowerCase('pt-BR');
     const rows = report.items.filter(i => (!filter.value || i.status === filter.value) && (!type.value || i.type === type.value) && (i.name + ' ' + i.table).toLocaleLowerCase('pt-BR').includes(q));
     document.getElementById('pbixCount').textContent = `${rows.length} de ${report.items.length} itens · use a busca e os filtros para refinar`;
-    document.getElementById('pbixRows').innerHTML = rows.length ? rows.map(i => `<tr><td><span class="pbix-item-name">${escape(i.name)}</span><small>${escape(i.type)}</small></td><td>${escape(i.table)}</td><td><span class="pbix-badge ${escape(i.status)}">${labels[i.status] || 'Precisa de revisão'}</span></td><td>${escape(i.reason)}${i.evidence?.length ? `<details><summary>Ver referências (${i.evidence.length})</summary><ul>${i.evidence.map(e => `<li>${escape(e)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('') : '<tr><td colspan="4">Nenhum item nesta seleção. Consulte também os itens que precisam de revisão.</td></tr>';
+    document.getElementById('pbixRows').innerHTML = rows.length ? rows.map(i => `<tr><td><span class="pbix-item-name">${escape(i.name)}</span><small>${escape(i.type)}</small></td><td>${escape(i.table)}</td><td><span class="pbix-badge ${escape(i.status)}">${labels[i.status] || 'Precisa de revisão'}</span></td><td>${escape(i.reason)}${findingDetails(i)}</td></tr>`).join('') : '<tr><td colspan="4">Nenhum item nesta seleção. Consulte também os itens que precisam de revisão.</td></tr>';
   }
   search.addEventListener('input', renderRows); filter.addEventListener('change', renderRows); type.addEventListener('change', renderRows);
   document.getElementById('pbixClearFilters').addEventListener('click', () => { search.value = ''; filter.value = ''; type.value = ''; renderRows(); });
@@ -56,9 +63,9 @@
       coverageBadge.className = 'pbix-badge ' + (payload.coverage === 'limited' ? 'review' : 'used');
       document.getElementById('pbixFilename').textContent = payload.filename;
       document.getElementById('pbixSummary').innerHTML = [['tables','Tabelas'],['measures','Medidas'],['columns','Colunas'],['used','É usado'],['unused_dependency','Usado por não usado'],['unused','Não é usado'],['review','Analisar']].map(([key,label]) => `<div class="panel pbix-metric"><span>${label}</span><strong>${Number(payload.summary[key])}</strong></div>`).join('');
-      document.getElementById('pbixWarnings').innerHTML = `<p>${escape(payload.limitations)}</p>` + (payload.warnings.length ? `<ul>${payload.warnings.map(w => `<li>${escape(w)}</li>`).join('')}</ul>` : '<p>Definição do relatório e expressões lidas. Usos fora deste arquivo continuam fora do escopo.</p>');
+      document.getElementById('pbixWarnings').innerHTML = `<p>${escape(payload.limitations)}</p>` + (payload.warnings.length ? `<ul>${payload.warnings.map(w => `<li>${escape(w)}</li>`).join('')}</ul>` : '<p>Definição do relatório e expressões lidas. Usos fora deste arquivo continuam fora do escopo.</p>') + (Number(payload.analysis_version || 0) < 14 ? '<p>A API ainda usa uma versão anterior. Aguarde a atualização do Render e faça uma nova análise para ver as cadeias de uso.</p>' : '');
       result.classList.remove('hidden'); renderRows();
-      status.textContent = payload.coverage === 'limited' ? 'Leitura com limitações. Itens sem referência foram encaminhados para revisão.' : 'Análise concluída. Consulte o uso dos itens e valide antes de remover no Power BI.';
+      status.textContent = payload.coverage === 'limited' ? 'Leitura com limitações. Consulte o motivo de cada resultado; referências confirmadas e dúvidas são identificadas separadamente.' : 'Análise concluída. Consulte as cadeias de uso e as referências de cada item.';
     } catch (error) {
       if (id === generation) status.textContent = error.name === 'AbortError' ? 'Tempo de espera excedido. Tente um PBIX menor; o servidor pode ainda estar concluindo a leitura.' : error instanceof TypeError ? 'Não foi possível acessar a API. Confira a URL, o serviço e os domínios permitidos (CORS).' : error.message;
     } finally { clearTimeout(timer); if (id === generation) { setLoading(false); controller = null; } }

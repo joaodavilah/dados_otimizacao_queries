@@ -878,6 +878,8 @@ body .nav-title { font-weight: 600 !important; color: white; display: flex; just
 .pbix-table small { display: block; color: var(--muted); }
 .pbix-table details { margin-top: 10px; color: var(--muted); }
 .pbix-table summary { cursor: pointer; color: var(--cyan); }
+.pbix-evidence-list { margin: 12px 0; padding-left: 22px; }
+.pbix-evidence-list li { padding: 5px 0; overflow-wrap: anywhere; }
 .pbix-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 13px; background: #334352; color: white; }
 .pbix-badge.used { background: #163d38; color: #78e9bf; }
 .pbix-badge.candidate { background: #454029; color: #f1d691; }

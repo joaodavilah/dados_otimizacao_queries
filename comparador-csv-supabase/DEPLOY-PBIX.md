@@ -33,13 +33,15 @@ Faça commit. Aguarde a atualização da Vercel, entre no site e teste a aba An�
 ## 4. Verificar um painel conhecido
 Comece com um PBIX pequeno contendo medidas usadas, uma medida que depende de outra e uma medida sem uso. Compare com o Power BI Desktop. Sem amostra real do setor, não considerar as candidatas comprovadamente removíveis.
 
-## Escopo desta versão
-- Lê medidas, colunas, relacionamentos e expressões do modelo embutido usando pbixray 0.15.5; busca referências no layout clássico Report/Layout, incluindo os JSONs internos de configuração, consultas e filtros.
-- Referência encontrada protege o item. Expressões são examinadas mesmo quando pertencem a uma medida sem uso direto: abordagem conservadora que pode preservar itens desnecessários.
-- Nomes ambíguos protegem todos os itens correspondentes. Usa leitura estática por padrões, não um parser completo de DAX.
-- Apenas medidas sem referências encontradas podem ser candidatas. Colunas sem referência são sempre encaminhadas para revisão devido aos usos estruturais e de tabela inteira.
-- Leitura parcial, visual não coberto, grupos de cálculo ou funções DAX encaminham itens sem referências para revisão. Não interpreta todos os formatos de relatório e propriedades possíveis.
-- Modelos remotos/live connection não têm inventário completo no PBIX e podem ser recusados. Outros relatórios/Excel, usos externos e Power BI Service não são consultados.
+## Escopo desta versão (v14)
+- Lê o inventário lógico de tabelas, medidas e colunas no modelo embutido, incluindo colunas de tabelas calculadas e DirectQuery quando os metadados estão no arquivo. A lista de arquivos VertiPaq não é usada como inventário completo.
+- Cruza IDs de relacionamentos, hierarquias, ordenação e agrupamento. Ordenação e agrupamento são dependências do objeto proprietário: se a coluna proprietária é usada, sua dependência também é preservada. Participação em hierarquias, relacionamentos, segurança, calendários, variações, agregações, chaves e objetos internos são preservados conservadoramente como usos estruturais.
+- Lê expressões de medidas, colunas, tabelas calculadas, RLS, formatação dinâmica, linhas de detalhe e KPIs. Liga formatação e linhas de detalhe à medida proprietária quando esse vínculo está disponível. KPIs preservam sua medida e dependências. Referências de tabelas/definições sem proprietário reconhecido são preservadas conservadoramente.
+- Usa tokens DAX para separar comentários, strings, tabelas qualificadas, identificadores escapados e nomes temporários de construtores de tabelas. Não executa DAX e não é um parser semântico completo. Uso de tabela inteira preserva suas colunas conservadoramente, mesmo quando nem todas são necessárias ao cálculo.
+- Procura o layout clássico e as partes PBIR reconhecidas. Busca referências estruturadas em filtros, consultas, formatação, bookmarks e páginas ocultas presentes. Cruza aliases por consulta, hierarquias e variações. Texto de título e correspondência parcial de nome não confirmam uso.
+- Referências exatas formam o grafo de dependências. Referências ambíguas ficam em Analisar e a dúvida se propaga para suas dependências conhecidas. Referências DAX não resolvidas em um cálculo com proprietário identificado são sinalizadas nesse cálculo e suas dependências; não bloqueiam automaticamente objetos independentes. Leitura do modelo/relatório incompleta, visuais não cobertos e expressões ilegíveis continuam bloqueando conclusões negativas no escopo afetado.
+- Grupos de cálculo e funções DAX ainda podem conter referências dinâmicas e continuam exigindo revisão. Outros relatórios/Excel, usos externos e Power BI Service não são consultados. Modelos remotos sem inventário embutido podem ser recusados.
+- Cada item pode mostrar a cadeia de uso, quem o referencia e o motivo específico de uma dúvida. Não é uma porcentagem de confiança nem garantia de ausência de usos não implementados.
 - O arquivo não é modificado. Não há exportação nem exclusão automática. A lista fica no site e é apagada em Resetar/logout.
 
 ## Recursos
@@ -55,3 +57,12 @@ A leitura agora procura Report/Layout, Report/report.json e as partes Report/def
 Dependências DAX qualificadas usam o nome da tabela; nomes ambíguos são preservados conservadoramente. Uso de tabela inteira como argumento de funções protege suas colunas. IDs de colunas são cruzados com tabelas para reconhecer ordenação, níveis de hierarquia, agrupamentos, variações, permissões, colunas relacionadas, alternativas de agregação e referências de calendário quando disponíveis. Colunas sem referência podem ser classificadas como Não é usado ou Usado por não usado quando essa leitura estrutural é confirmada.
 
 A API mudou: aguarde o deploy do Render após atualizar o GitHub e execute uma nova análise. A definição Não é usado se limita às referências encontradas pelos leitores implementados; não equivale a cobertura total do Measure Killer. Os testes incluem layouts sintéticos e dependências simuladas; ainda é necessário validar com PBIX reais e comparar com resultados conhecidos. Grupos de cálculo, funções DAX e KPIs continuam exigindo revisão complementar.
+
+## Atualização v14: metadados lógicos e evidências de uso
+Atualize a pasta inteira no GitHub, incluindo os novos arquivos `backend/app/services/model_metadata.py` e `backend/app/services/dax_dependencies.py`. Não precisa mudar as variáveis de ambiente, criar tabelas no Supabase ou configurar IA.
+
+Aguarde os deploys da Vercel e do Render. Faça uma nova análise: resultados anteriores não são reprocessados. A API retorna `analysis_version: 14`; se o site receber uma versão anterior, avisa para aguardar a atualização do Render.
+
+O adaptador de metadados usa uma conexão interna da versão fixada pbixray 0.15.5 para ler propriedades que os endpoints públicos omitem. Se esse adaptador ou o esquema não puder ser lido, o inventário alternativo não autoriza conclusões de ausência de uso. Não atualize pbixray sem validar o adaptador.
+
+Validação: testes com layouts JSON, banco SQLite de metadados simulado, grafo de dependências, endpoints com autenticação simulada e interface em DOM simulado. Ainda não foi validado um PBIX real do setor, nem a abertura/comparação dos resultados no Power BI Desktop. Antes de usar a lista para remover objetos, compare um painel com uso conhecido.
